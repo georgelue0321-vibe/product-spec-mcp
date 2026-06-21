@@ -166,6 +166,25 @@ describe("productSpecAssist", () => {
       expect(result.markdown).toContain("上线前缺口检查");
     });
 
+    it("should keep launch intent when portfolio context adds display keywords", () => {
+      const result = executeAssist(
+        "个人作品网站我想上线了，需要注意什么？我是一个B2B产品经理转内容创作者，有9年产品经验，目前做自媒体运营（头条+小红书）和AI应用开发。网站主要展示我的作品集、项目经历和技术能力。",
+        undefined,
+        "web",
+        "normal",
+        true
+      );
+
+      expect(result.routedIntent.scenario).toBe("launch");
+      expect(result.selectedTool).toBeNull();
+      expect(result.executed).toBe(false);
+      expect(result.markdown).toContain("上线部署");
+      expect(result.markdown).toContain("上线前缺口检查");
+      expect(result.markdown).not.toContain("静态展示网站");
+      expect(result.quickQuestions.some((q) => q.id === "domain")).toBe(true);
+      expect(result.quickQuestions.some((q) => q.id === "audience_region")).toBe(true);
+    });
+
     it("should return launch quick questions and guardrails", () => {
       const result = executeAssist("这个个人作品网站我想上线了，需要注意什么？");
 

@@ -28,6 +28,14 @@ export function routeIntent(rawIdea: string): IntentResult {
     };
   }
 
+  if (isExplicitLaunchInquiry(rawIdea)) {
+    return {
+      intent: "launch",
+      scenario: "launch",
+      confidence: 1,
+    };
+  }
+
   let bestScenario: IntentResult["scenario"] = "unknown";
   let bestScore = 0;
 
@@ -62,5 +70,17 @@ function isExplicitUiModification(text: string): boolean {
     existingContextSignals.some((kw) => text.includes(kw)) &&
     uiTargetSignals.some((kw) => text.includes(kw)) &&
     modificationSignals.some((kw) => text.includes(kw))
+  );
+}
+
+function isExplicitLaunchInquiry(text: string): boolean {
+  const launchSignals = ["上线", "部署", "发布"];
+  const inquirySignals = ["需要注意什么", "注意什么", "怎么上线", "如何上线", "想上线", "要上线", "上线前", "准备上线"];
+  const debugSignals = ["报错", "错误", "失败", "异常", "白屏", "崩溃"];
+
+  return (
+    launchSignals.some((kw) => text.includes(kw)) &&
+    inquirySignals.some((kw) => text.includes(kw)) &&
+    !debugSignals.some((kw) => text.includes(kw))
   );
 }

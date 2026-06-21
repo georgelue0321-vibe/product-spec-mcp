@@ -207,3 +207,21 @@ npm test -- tests/acceptanceGenerate.test.ts tests/productSpecAssist.test.ts
 **回归测试**：
 - `tests/acceptanceGenerate.test.ts`：纯静态作品集不得包含 `loading 或 skeleton`、`空数据`、`表单提交`、`接口超时`、`500 错误`。
 - `tests/productSpecAssist.test.ts`：已知纯静态上下文下，不再追问 `site_type` 和 `interactive_features`。
+
+---
+
+## 坑点 12：上线咨询被作品集描述拉回产品规划
+
+**现象**：用户问“个人作品网站我想上线了，需要注意什么？”，如果后面补充“我是 B2B 产品经理、内容创作者、AI 应用开发，网站展示作品集、项目经历和技术能力”，`product_spec_assist` 容易被“网站 / 作品集 / 展示 / 开发”等关键词拉回 `build_product`，输出“静态展示网站”的模块、视觉风格、联系方式追问，而不是上线检查。
+
+**原因**：
+1. `build_product` 的关键词数量较多，长上下文里容易命中“网站、作品、展示、开发、应用”等词。
+2. `launch` 只靠普通关键词打分，单个“上线”不足以压过多个产品规划关键词。
+3. “需要注意什么 / 想上线 / 上线前”这类咨询意图没有专项优先规则。
+
+**解决**：
+- 在 `intentRouter.ts` 增加上线咨询优先规则：包含“上线/部署/发布”并且同时包含“需要注意什么、怎么上线、想上线、上线前、准备上线”等咨询信号时，优先路由到 `launch`。
+- 若同一句包含明显 Debug 信号（报错、失败、白屏等），仍不套用上线咨询优先规则，避免遮住故障排查。
+
+**回归测试**：
+- `tests/productSpecAssist.test.ts`：带有个人背景和作品集描述的“个人作品网站我想上线了，需要注意什么？”必须保持 `scenario=launch`，不得返回“静态展示网站”。
