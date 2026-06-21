@@ -1,0 +1,14 @@
+{
+  "_meta": {
+    "recommended_tools": ["spec_interrogate", "spec_compile", "architecture_decide", "acceptance_generate"],
+    "description": "报名系统 - 带后台审核的表单场景"
+  },
+  "raw_idea": "我想做一个报名系统，用户可以提交资料，后台能看到所有报名信息并审核",
+  "scenario": "build_product",
+  "target_platform": "web",
+  "strictness": "normal",
+  "known_context": {
+    "commercial_intent": true,
+    "expected_users": "small_team"
+  }
+}

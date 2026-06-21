@@ -1,0 +1,298 @@
+{
+  "build_product": [
+    {
+      "field": "target_user",
+      "question": "目标用户是谁？",
+      "why_important": "决定 UI 风格、交互复杂度、技术选型",
+      "options": ["个人用户", "小团队", "企业用户", "学生", "家长", "管理员"],
+      "default_assumption": "个人用户",
+      "priority": "P0",
+      "keywords": ["用户", "客户", "玩家", "学生", "家长", "老师"]
+    },
+    {
+      "field": "product_goal",
+      "question": "用户最终要完成什么任务？",
+      "why_important": "决定核心功能和页面结构",
+      "options": ["提交信息", "查看数据", "管理内容", "在线支付", "社交互动"],
+      "default_assumption": "完成核心业务流程",
+      "priority": "P0",
+      "keywords": ["任务", "目标", "完成", "实现"]
+    },
+    {
+      "field": "data_persistence",
+      "question": "是否需要保存数据？",
+      "why_important": "决定是否需要数据库和后端",
+      "options": ["需要保存用户数据", "只在本地存储", "不需要保存"],
+      "default_assumption": "需要保存数据",
+      "priority": "P0",
+      "keywords": ["保存", "记录", "存储", "数据库", "历史"]
+    },
+    {
+      "field": "user_roles",
+      "question": "是否需要登录和用户角色？",
+      "why_important": "决定是否需要鉴权系统",
+      "options": ["需要登录", "需要多角色权限", "不需要登录"],
+      "default_assumption": "需要基本登录",
+      "priority": "P0",
+      "keywords": ["登录", "注册", "权限", "管理员", "角色", "后台"]
+    },
+    {
+      "field": "backend_need",
+      "question": "是否需要后台管理？",
+      "why_important": "决定是否需要管理后台",
+      "options": ["需要管理后台", "只需要前台", "不确定"],
+      "default_assumption": "视功能复杂度决定",
+      "priority": "P1",
+      "keywords": ["后台", "管理", "审核", "统计"]
+    },
+    {
+      "field": "external_integrations",
+      "question": "是否涉及支付、AI API、短信、微信等第三方服务？",
+      "why_important": "决定是否需要后端代理和安全措施",
+      "options": ["需要支付", "需要 AI API", "需要短信", "需要微信登录", "都不需要"],
+      "default_assumption": "不涉及第三方服务",
+      "priority": "P1",
+      "keywords": ["支付", "AI", "短信", "微信", "支付宝", "API"]
+    },
+    {
+      "field": "core_features",
+      "question": "第一版 MVP 只做哪些功能？",
+      "why_important": "控制范围，避免过度开发",
+      "options": ["只做核心功能", "包含管理功能", "包含支付功能"],
+      "default_assumption": "只做核心功能",
+      "priority": "P0",
+      "keywords": ["MVP", "第一版", "核心", "功能"]
+    },
+    {
+      "field": "workflow",
+      "question": "核心业务流程是什么？提交后需要审核吗？",
+      "why_important": "决定是否需要审核模块和状态机",
+      "options": ["提交即完成", "提交后需审核", "提交后需多级审核"],
+      "default_assumption": "提交即完成",
+      "priority": "P0",
+      "keywords": ["流程", "审核", "审批", "提交", "通过", "拒绝"]
+    },
+    {
+      "field": "form_fields",
+      "question": "表单需要采集哪些字段？",
+      "why_important": "决定数据结构和表单设计",
+      "options": ["姓名+电话", "姓名+电话+邮箱", "姓名+电话+自定义字段", "不确定"],
+      "default_assumption": "姓名+电话",
+      "priority": "P0",
+      "keywords": ["字段", "表单", "姓名", "电话", "邮箱", "地址", "采集", "提交"]
+    },
+    {
+      "field": "primary_platform",
+      "question": "主要使用场景是手机端还是桌面端？",
+      "why_important": "决定 UI 布局和响应式策略",
+      "options": ["手机端为主", "桌面端为主", "两端都要"],
+      "default_assumption": "手机端为主",
+      "priority": "P1",
+      "keywords": ["手机", "移动端", "H5", "扫码", "微信"]
+    },
+    {
+      "field": "export_format",
+      "question": "导出需要什么格式？",
+      "why_important": "决定导出功能的技术实现",
+      "options": ["Excel (.xlsx)", "CSV", "PDF", "不需要导出"],
+      "default_assumption": "Excel (.xlsx)",
+      "priority": "P1",
+      "keywords": ["导出", "Excel", "下载", "表格", "xlsx", "CSV"]
+    },
+    {
+      "field": "dedup_strategy",
+      "question": "如何防止重复提交？",
+      "why_important": "决定去重逻辑和用户体验",
+      "options": ["手机号去重", "姓名+电话去重", "不限制重复", "不确定"],
+      "default_assumption": "手机号去重",
+      "priority": "P1",
+      "keywords": ["重复", "去重", "防刷", "唯一"]
+    },
+    {
+      "field": "admin_access",
+      "question": "后台谁能访问？需要登录吗？",
+      "why_important": "决定后台鉴权方案",
+      "options": ["任何人都能访问（有链接即可）", "需要管理员登录", "需要邀请码"],
+      "default_assumption": "需要管理员登录",
+      "priority": "P0",
+      "keywords": ["后台", "管理员", "访问", "权限", "登录"]
+    }
+  ],
+  "modify_ui": [
+    {
+      "field": "target_page",
+      "question": "要修改哪个页面？",
+      "why_important": "定位修改范围",
+      "options": ["首页", "列表页", "详情页", "表单页", "个人中心"],
+      "default_assumption": "首页",
+      "priority": "P0",
+      "keywords": ["页面", "首页", "列表", "详情"]
+    },
+    {
+      "field": "target_area",
+      "question": "要修改哪个区域？",
+      "why_important": "精确定位组件",
+      "options": ["Header", "Hero", "Footer", "Card", "Form", "Modal", "Sidebar"],
+      "default_assumption": "Hero Section",
+      "priority": "P0",
+      "keywords": ["上面", "下面", "中间", "左边", "右边", "顶部", "底部"]
+    },
+    {
+      "field": "issue_type",
+      "question": "是视觉问题、交互问题，还是响应式问题？",
+      "why_important": "决定修改方式",
+      "options": ["视觉问题", "交互问题", "响应式问题", "性能问题"],
+      "default_assumption": "视觉问题",
+      "priority": "P0",
+      "keywords": ["好看", "丑", "乱", "卡", "慢", "点不动"]
+    },
+    {
+      "field": "layout_flexibility",
+      "question": "是否允许调整整体布局？",
+      "why_important": "评估改动范围",
+      "options": ["可以大改", "只改局部", "不能改布局"],
+      "default_assumption": "只改局部",
+      "priority": "P1",
+      "keywords": ["布局", "整体", "局部"]
+    },
+    {
+      "field": "protected_areas",
+      "question": "是否有不能改动的区域？",
+      "why_important": "避免破坏现有功能",
+      "options": ["没有限制", "导航不能改", "Logo 不能改", "特定模块不能改"],
+      "default_assumption": "没有限制",
+      "priority": "P1",
+      "keywords": ["不能改", "限制", "固定"]
+    },
+    {
+      "field": "responsive_scope",
+      "question": "桌面端和移动端是否都要改？",
+      "why_important": "确定适配范围",
+      "options": ["都要改", "只改桌面端", "只改移动端"],
+      "default_assumption": "都要改",
+      "priority": "P1",
+      "keywords": ["手机", "电脑", "移动端", "桌面端", "响应式"]
+    }
+  ],
+  "debug": [
+    {
+      "field": "platform",
+      "question": "出错平台是什么？",
+      "why_important": "决定排查方向",
+      "options": ["Web", "小程序", "App", "后端", "构建"],
+      "default_assumption": "Web",
+      "priority": "P0",
+      "keywords": ["网页", "小程序", "App", "手机端", "服务端"]
+    },
+    {
+      "field": "operation_path",
+      "question": "具体操作路径是什么？",
+      "why_important": "复现问题",
+      "options": ["点击按钮", "提交表单", "页面跳转", "加载数据"],
+      "default_assumption": "需要用户提供",
+      "priority": "P0",
+      "keywords": ["点击", "提交", "打开", "跳转"]
+    },
+    {
+      "field": "console_error",
+      "question": "有没有 Console 报错？",
+      "why_important": "快速定位代码问题",
+      "options": ["有红色报错", "有黄色警告", "没有报错", "不确定"],
+      "default_assumption": "需要用户检查",
+      "priority": "P0",
+      "keywords": ["报错", "错误", "console", "error"]
+    },
+    {
+      "field": "network_error",
+      "question": "Network 里失败请求的状态码是什么？",
+      "why_important": "判断是前端还是后端问题",
+      "options": ["400", "401", "403", "404", "500", "没有失败请求"],
+      "default_assumption": "需要用户检查",
+      "priority": "P0",
+      "keywords": ["请求", "网络", "接口", "API", "状态码"]
+    },
+    {
+      "field": "response_content",
+      "question": "Response 返回内容是什么？",
+      "why_important": "分析后端返回的错误信息",
+      "options": ["需要用户提供"],
+      "default_assumption": "需要用户提供",
+      "priority": "P1",
+      "keywords": ["返回", "响应", "response"]
+    },
+    {
+      "field": "reproducibility",
+      "question": "是否稳定复现？",
+      "why_important": "判断是偶发还是必现问题",
+      "options": ["必现", "偶发", "特定条件才出现"],
+      "default_assumption": "需要用户确认",
+      "priority": "P1",
+      "keywords": ["每次", "偶尔", "随机", "必现"]
+    }
+  ],
+  "launch": [
+    {
+      "field": "public_access",
+      "question": "是否需要公网访问？",
+      "why_important": "决定部署方案",
+      "options": ["需要公网", "只在内网", "只在本地"],
+      "default_assumption": "需要公网访问",
+      "priority": "P0",
+      "keywords": ["公网", "外网", "上线", "发布"]
+    },
+    {
+      "field": "domain",
+      "question": "是否需要绑定域名？",
+      "why_important": "决定域名配置",
+      "options": ["需要自定义域名", "使用默认域名"],
+      "default_assumption": "使用默认域名",
+      "priority": "P1",
+      "keywords": ["域名", "自定义"]
+    },
+    {
+      "field": "https",
+      "question": "是否需要 HTTPS？",
+      "why_important": "决定证书配置",
+      "options": ["必须 HTTPS", "HTTP 即可"],
+      "default_assumption": "必须 HTTPS",
+      "priority": "P0",
+      "keywords": ["HTTPS", "SSL", "证书", "安全"]
+    },
+    {
+      "field": "china_mainland",
+      "question": "是否部署在中国大陆服务器？",
+      "why_important": "决定是否需要备案",
+      "options": ["是", "否", "不确定"],
+      "default_assumption": "否",
+      "priority": "P0",
+      "keywords": ["国内", "大陆", "中国", "备案"]
+    },
+    {
+      "field": "icp_filing",
+      "question": "是否需要备案？",
+      "why_important": "合规要求",
+      "options": ["需要备案", "不需要", "已有备案"],
+      "default_assumption": "视服务器位置决定",
+      "priority": "P0",
+      "keywords": ["备案", "ICP"]
+    },
+    {
+      "field": "user_data_privacy",
+      "question": "是否涉及用户数据和隐私？",
+      "why_important": "决定数据保护措施",
+      "options": ["涉及", "不涉及", "不确定"],
+      "default_assumption": "涉及用户数据",
+      "priority": "P0",
+      "keywords": ["隐私", "数据", "用户信息", "GDPR"]
+    },
+    {
+      "field": "monitoring",
+      "question": "是否需要日志、备份和监控？",
+      "why_important": "决定运维方案",
+      "options": ["需要完整监控", "只需要日志", "不需要"],
+      "default_assumption": "需要基本日志",
+      "priority": "P1",
+      "keywords": ["日志", "监控", "备份", "告警"]
+    }
+  ]
+}

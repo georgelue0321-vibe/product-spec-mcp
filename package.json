@@ -1,0 +1,48 @@
+{
+  "name": "product-spec-mcp",
+  "version": "1.0.0",
+  "description": "MCP Server for product specification - requirement interrogation, architecture decision, UI translation, debug guidance, and acceptance generation",
+  "type": "commonjs",
+  "main": "dist/index.cjs",
+  "bin": {
+    "product-spec-mcp": "dist/index.cjs"
+  },
+  "files": [
+    "dist/index.cjs",
+    "README.md"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "clean": "node -e \"require('fs').rmSync('dist',{recursive:true,force:true})\"",
+    "build": "npm run clean && esbuild src/index.ts --bundle --platform=node --outfile=dist/index.cjs --format=cjs",
+    "typecheck": "tsc --noEmit --skipLibCheck --isolatedModules",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "start": "node dist/index.cjs",
+    "dev": "tsx src/index.ts",
+    "prepublishOnly": "npm run typecheck && npm test && npm run build"
+  },
+  "keywords": [
+    "mcp",
+    "product-spec",
+    "requirement",
+    "architecture",
+    "debug",
+    "acceptance",
+    "ai-coding"
+  ],
+  "license": "MIT",
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.12.1",
+    "zod": "^3.25.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "esbuild": "^0.25.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.7.0",
+    "vitest": "^3.0.0"
+  }
+}

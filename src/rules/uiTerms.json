@@ -1,0 +1,127 @@
+{
+  "mappings": [
+    {
+      "user_input": "上面那块",
+      "frontend_terms": ["Header", "Navbar", "Hero Section"],
+      "component_type": "header"
+    },
+    {
+      "user_input": "首页最显眼那块",
+      "frontend_terms": ["Hero Section", "Banner"],
+      "component_type": "hero"
+    },
+    {
+      "user_input": "底下那块",
+      "frontend_terms": ["Footer"],
+      "component_type": "footer"
+    },
+    {
+      "user_input": "点一下弹出来",
+      "frontend_terms": ["Modal", "Dialog", "Popup"],
+      "component_type": "modal"
+    },
+    {
+      "user_input": "右上角提示",
+      "frontend_terms": ["Toast Notification", "Snackbar"],
+      "component_type": "toast"
+    },
+    {
+      "user_input": "鼠标放上去变一下",
+      "frontend_terms": ["Hover State", "Hover Animation"],
+      "component_type": "hover"
+    },
+    {
+      "user_input": "按钮碰上去",
+      "frontend_terms": ["Button Hover State", "Hover Effect"],
+      "component_type": "hover"
+    },
+    {
+      "user_input": "字一个个出来",
+      "frontend_terms": ["Typewriter Effect", "Text Animation"],
+      "component_type": "animation"
+    },
+    {
+      "user_input": "横着滚动",
+      "frontend_terms": ["Marquee", "Horizontal Scroll", "Carousel"],
+      "component_type": "scroll"
+    },
+    {
+      "user_input": "图片轮播",
+      "frontend_terms": ["Carousel", "Swiper", "Image Slider"],
+      "component_type": "carousel"
+    },
+    {
+      "user_input": "卡片排列",
+      "frontend_terms": ["Card Grid", "Card Layout"],
+      "component_type": "grid"
+    },
+    {
+      "user_input": "左边菜单",
+      "frontend_terms": ["Sidebar Navigation", "Side Menu"],
+      "component_type": "sidebar"
+    },
+    {
+      "user_input": "顶部固定",
+      "frontend_terms": ["Sticky Header", "Fixed Header"],
+      "component_type": "sticky"
+    },
+    {
+      "user_input": "悬浮按钮",
+      "frontend_terms": ["Floating Action Button", "FAB"],
+      "component_type": "fab"
+    },
+    {
+      "user_input": "页面加载转圈",
+      "frontend_terms": ["Loading Spinner", "Skeleton Screen"],
+      "component_type": "loading"
+    },
+    {
+      "user_input": "点完没有反应",
+      "frontend_terms": ["Missing Feedback", "No Loading State", "Click Handler Issue"],
+      "component_type": "feedback"
+    },
+    {
+      "user_input": "手机上乱了",
+      "frontend_terms": ["Responsive Layout Issue", "Mobile Layout Problem"],
+      "component_type": "responsive"
+    },
+    {
+      "user_input": "看起来廉价",
+      "frontend_terms": ["Visual Hierarchy Issue", "Spacing Problem", "Typography Problem", "Color System Problem"],
+      "component_type": "visual"
+    },
+    {
+      "user_input": "高级一点",
+      "frontend_terms": ["Premium Visual Hierarchy", "Restrained Color Palette", "Better Spacing", "Typography Scale"],
+      "component_type": "upgrade"
+    },
+    {
+      "user_input": "下面加联系方式",
+      "frontend_terms": ["Footer Contact Section", "Contact Block"],
+      "component_type": "contact"
+    },
+    {
+      "user_input": "加个搜索",
+      "frontend_terms": ["Search Bar", "Search Input", "Search Functionality"],
+      "component_type": "search"
+    },
+    {
+      "user_input": "加个筛选",
+      "frontend_terms": ["Filter Component", "Filter Bar"],
+      "component_type": "filter"
+    },
+    {
+      "user_input": "分页",
+      "frontend_terms": ["Pagination", "Page Navigator"],
+      "component_type": "pagination"
+    }
+  ],
+  "upgrade_suggestions": {
+    "upgrade": {
+      "visual_hierarchy": "使用更大的标题字重、更明确的层级对比、更多的留白",
+      "spacing": "增加元素间距，使用 8px 网格系统",
+      "typography": "使用专业的字体配对，建立清晰的字体层级",
+      "color_system": "使用克制的配色方案，主色不超过 2 种，强调色仅用于 CTA"
+    }
+  }
+}

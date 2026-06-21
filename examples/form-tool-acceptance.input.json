@@ -1,0 +1,12 @@
+{
+  "_meta": {
+    "recommended_tools": ["acceptance_generate"],
+    "description": "表单工具验收 - 带后端场景"
+  },
+  "product_type": "表单提交工具",
+  "features": ["表单提交", "数据查看", "导出"],
+  "platform": "web",
+  "has_backend": true,
+  "has_payment": false,
+  "has_auth": false
+}

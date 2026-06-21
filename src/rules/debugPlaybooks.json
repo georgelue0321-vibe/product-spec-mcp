@@ -1,0 +1,267 @@
+{
+  "platforms": {
+    "web": {
+      "required_info": [
+        {
+          "field": "console_error",
+          "description": "Console 报错",
+          "how_to_get": "打开浏览器开发者工具 (F12)，查看 Console 标签页",
+          "priority": "P0"
+        },
+        {
+          "field": "network_error",
+          "description": "Network 失败请求",
+          "how_to_get": "打开浏览器开发者工具 (F12)，查看 Network 标签页，筛选红色请求",
+          "priority": "P0"
+        },
+        {
+          "field": "request_url",
+          "description": "Request URL",
+          "how_to_get": "在 Network 中点击失败请求，查看 Headers 中的 Request URL",
+          "priority": "P0"
+        },
+        {
+          "field": "status_code",
+          "description": "Status Code",
+          "how_to_get": "在 Network 中点击失败请求，查看 Status Code",
+          "priority": "P0"
+        },
+        {
+          "field": "response",
+          "description": "Response 内容",
+          "how_to_get": "在 Network 中点击失败请求，查看 Response 标签页",
+          "priority": "P0"
+        },
+        {
+          "field": "request_payload",
+          "description": "Request Payload",
+          "how_to_get": "在 Network 中点击失败请求，查看 Payload 标签页",
+          "priority": "P1"
+        },
+        {
+          "field": "repro_steps",
+          "description": "操作复现步骤",
+          "how_to_get": "描述从打开页面到出错的完整操作路径",
+          "priority": "P0"
+        },
+        {
+          "field": "current_url",
+          "description": "当前页面 URL",
+          "how_to_get": "浏览器地址栏中的完整 URL",
+          "priority": "P1"
+        },
+        {
+          "field": "device_specific",
+          "description": "是否只在特定端出现",
+          "how_to_get": "分别在手机和电脑上测试，确认是否只在某一端出现",
+          "priority": "P1"
+        }
+      ],
+      "common_issues": [
+        "跨域问题 (CORS)",
+        "JavaScript 语法错误",
+        "API 接口地址错误",
+        "数据格式不匹配",
+        "权限不足 (401/403)",
+        "资源加载失败 (404)"
+      ]
+    },
+    "mini_program": {
+      "required_info": [
+        {
+          "field": "devtools_console",
+          "description": "微信开发者工具 Console",
+          "how_to_get": "在微信开发者工具中查看 Console 面板",
+          "priority": "P0"
+        },
+        {
+          "field": "devtools_network",
+          "description": "Network 请求截图",
+          "how_to_get": "在微信开发者工具中查看 Network 面板",
+          "priority": "P0"
+        },
+        {
+          "field": "page_path",
+          "description": "出错页面路径",
+          "how_to_get": "查看 app.json 中的 pages 配置，确认当前页面路径",
+          "priority": "P0"
+        },
+        {
+          "field": "config_files",
+          "description": "app.json / page.json 配置",
+          "how_to_get": "提供 app.json 和当前页面的 page.json 内容",
+          "priority": "P1"
+        },
+        {
+          "field": "real_device",
+          "description": "是否真机复现",
+          "how_to_get": "在真机上测试，确认是否只在开发者工具中出现",
+          "priority": "P0"
+        },
+        {
+          "field": "base_library_version",
+          "description": "基础库版本",
+          "how_to_get": "在微信开发者工具中查看项目设置中的基础库版本",
+          "priority": "P1"
+        },
+        {
+          "field": "domain_config",
+          "description": "合法域名配置",
+          "how_to_get": "在微信公众平台 → 开发管理 → 服务器域名中检查",
+          "priority": "P0"
+        }
+      ],
+      "common_issues": [
+        "域名未配置到合法域名列表",
+        "HTTPS 证书问题",
+        "页面路径错误",
+        "组件未正确注册",
+        "基础库版本不兼容",
+        "真机与开发者工具表现不一致"
+      ]
+    },
+    "app": {
+      "required_info": [
+        {
+          "field": "device_model",
+          "description": "设备型号",
+          "how_to_get": "设置 → 关于手机 → 型号",
+          "priority": "P0"
+        },
+        {
+          "field": "os_version",
+          "description": "系统版本",
+          "how_to_get": "设置 → 关于手机 → 系统版本",
+          "priority": "P0"
+        },
+        {
+          "field": "app_version",
+          "description": "App 版本",
+          "how_to_get": "App 设置 → 关于 → 版本号",
+          "priority": "P0"
+        },
+        {
+          "field": "crash_log",
+          "description": "崩溃日志",
+          "how_to_get": "查看 Xcode Console 或 Android Logcat",
+          "priority": "P0"
+        },
+        {
+          "field": "operation_path",
+          "description": "操作路径",
+          "how_to_get": "描述从打开 App 到出错的完整操作步骤",
+          "priority": "P0"
+        },
+        {
+          "field": "device_specific",
+          "description": "是否特定设备复现",
+          "how_to_get": "在不同设备上测试",
+          "priority": "P1"
+        }
+      ],
+      "common_issues": [
+        "内存溢出 (OOM)",
+        "网络请求超时",
+        "权限未申请",
+        "兼容性问题",
+        "第三方 SDK 初始化失败"
+      ]
+    },
+    "backend": {
+      "required_info": [
+        {
+          "field": "api_path",
+          "description": "接口路径",
+          "how_to_get": "完整的 API 路径，如 /api/v1/users",
+          "priority": "P0"
+        },
+        {
+          "field": "request_params",
+          "description": "请求参数",
+          "how_to_get": "请求 Body 或 Query 参数",
+          "priority": "P0"
+        },
+        {
+          "field": "status_code",
+          "description": "状态码",
+          "how_to_get": "HTTP 响应状态码",
+          "priority": "P0"
+        },
+        {
+          "field": "server_log",
+          "description": "后端日志",
+          "how_to_get": "服务器日志文件或日志服务中的错误日志",
+          "priority": "P0"
+        },
+        {
+          "field": "db_error",
+          "description": "数据库报错",
+          "how_to_get": "数据库日志或 ORM 返回的错误信息",
+          "priority": "P0"
+        },
+        {
+          "field": "trace_id",
+          "description": "trace_id / request_id",
+          "how_to_get": "响应 Header 或日志中的请求追踪 ID",
+          "priority": "P0"
+        },
+        {
+          "field": "recent_changes",
+          "description": "最近是否改过环境变量、数据库结构或依赖",
+          "how_to_get": "检查最近的代码提交和部署记录",
+          "priority": "P1"
+        }
+      ],
+      "common_issues": [
+        "数据库连接失败",
+        "SQL 语法错误",
+        "环境变量未配置",
+        "依赖版本冲突",
+        "内存溢出",
+        "死锁"
+      ]
+    },
+    "build": {
+      "required_info": [
+        {
+          "field": "build_command",
+          "description": "构建命令",
+          "how_to_get": "执行的 npm run build 或其他构建命令",
+          "priority": "P0"
+        },
+        {
+          "field": "full_error_log",
+          "description": "完整错误日志",
+          "how_to_get": "终端中的完整错误输出",
+          "priority": "P0"
+        },
+        {
+          "field": "node_version",
+          "description": "Node/npm 版本",
+          "how_to_get": "执行 node -v 和 npm -v",
+          "priority": "P0"
+        },
+        {
+          "field": "dependency_versions",
+          "description": "依赖版本",
+          "how_to_get": "提供 package.json 和 package-lock.json",
+          "priority": "P1"
+        },
+        {
+          "field": "env_variables",
+          "description": "环境变量配置",
+          "how_to_get": "检查 .env 文件或环境变量设置",
+          "priority": "P1"
+        }
+      ],
+      "common_issues": [
+        "TypeScript 类型错误",
+        "依赖未安装",
+        "Node 版本不兼容",
+        "环境变量缺失",
+        "路径大小写问题",
+        "内存不足"
+      ]
+    }
+  }
+}

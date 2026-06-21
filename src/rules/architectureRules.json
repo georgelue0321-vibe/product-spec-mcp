@@ -1,0 +1,119 @@
+{
+  "rules": [
+    {
+      "condition": {
+        "product_type_keywords": ["展示", "作品", "landing", "官网", "静态"]
+      },
+      "result": {
+        "can_be_frontend_only": true,
+        "need_backend": false,
+        "need_separation": false,
+        "recommended_database": "none",
+        "need_auth": false,
+        "need_admin": false,
+        "need_logging": false,
+        "payment_risk": false,
+        "ai_key_risk": false,
+        "mvp_suggestion": "纯前端部署，使用静态托管",
+        "production_suggestion": "纯前端 + CDN"
+      }
+    },
+    {
+      "condition": {
+        "features_include": ["表单", "留言", "预约", "提交"]
+      },
+      "result": {
+        "can_be_frontend_only": false,
+        "need_backend": true,
+        "need_separation": false,
+        "recommended_database": "SQLite",
+        "need_auth": false,
+        "need_admin": false,
+        "need_logging": true,
+        "payment_risk": false,
+        "ai_key_risk": false,
+        "mvp_suggestion": "轻量后端 + SQLite 或第三方表单服务",
+        "production_suggestion": "Node.js/Python + PostgreSQL"
+      }
+    },
+    {
+      "condition": {
+        "features_include": ["登录", "注册", "用户中心", "历史记录", "个人中心"]
+      },
+      "result": {
+        "can_be_frontend_only": false,
+        "need_backend": true,
+        "need_separation": true,
+        "recommended_database": "PostgreSQL",
+        "need_auth": true,
+        "need_admin": false,
+        "need_logging": true,
+        "payment_risk": false,
+        "ai_key_risk": false,
+        "mvp_suggestion": "后端 + 数据库 + JWT 鉴权",
+        "production_suggestion": "前后分离 + PostgreSQL + Redis session"
+      }
+    },
+    {
+      "condition": {
+        "features_include": ["后台", "管理", "审核", "权限", "多人", "协作"]
+      },
+      "result": {
+        "can_be_frontend_only": false,
+        "need_backend": true,
+        "need_separation": true,
+        "recommended_database": "PostgreSQL",
+        "need_auth": true,
+        "need_admin": true,
+        "need_logging": true,
+        "payment_risk": false,
+        "ai_key_risk": false,
+        "mvp_suggestion": "前后分离 + 角色权限模型",
+        "production_suggestion": "前后分离 + RBAC + PostgreSQL + 日志"
+      }
+    },
+    {
+      "condition": {
+        "features_include": ["支付", "订阅", "退款", "订单"]
+      },
+      "result": {
+        "can_be_frontend_only": false,
+        "need_backend": true,
+        "need_separation": true,
+        "recommended_database": "PostgreSQL",
+        "need_auth": true,
+        "need_admin": true,
+        "need_logging": true,
+        "payment_risk": true,
+        "ai_key_risk": false,
+        "mvp_suggestion": "必须后端处理支付回调，不能只靠前端",
+        "production_suggestion": "后端 + 支付回调 + 订单系统 + 对账"
+      }
+    },
+    {
+      "condition": {
+        "features_include": ["AI", "GPT", "大模型", "智能", "API调用"]
+      },
+      "result": {
+        "can_be_frontend_only": false,
+        "need_backend": true,
+        "need_separation": true,
+        "recommended_database": "PostgreSQL",
+        "need_auth": true,
+        "need_admin": false,
+        "need_logging": true,
+        "payment_risk": false,
+        "ai_key_risk": true,
+        "mvp_suggestion": "后端代理 AI API，避免 Key 暴露在前端",
+        "production_suggestion": "后端代理 + 限流 + 用量统计"
+      }
+    }
+  ],
+  "database_recommendations": {
+    "prototype": "SQLite",
+    "single_user": "SQLite",
+    "small_team": "PostgreSQL",
+    "enterprise": "PostgreSQL",
+    "massive": "PostgreSQL + Redis"
+  }
+}

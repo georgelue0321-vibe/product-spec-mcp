@@ -1,0 +1,15 @@
+{
+  "_meta": {
+    "recommended_tools": ["spec_interrogate", "spec_compile", "architecture_decide", "acceptance_generate"],
+    "description": "学校活动规划系统 - 多角色协作场景"
+  },
+  "raw_idea": "我想做一个学校活动规划系统，老师可以发布活动，学生可以报名参加，家长可以查看孩子的参与情况",
+  "scenario": "build_product",
+  "target_platform": "web",
+  "strictness": "normal",
+  "known_context": {
+    "target_user": "学校师生和家长",
+    "commercial_intent": false,
+    "expected_users": "small_team"
+  }
+}

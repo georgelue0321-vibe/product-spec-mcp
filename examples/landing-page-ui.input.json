@@ -1,0 +1,9 @@
+{
+  "_meta": {
+    "recommended_tools": ["ui_translate"],
+    "description": "Landing Page UI 修改 - 口语化描述转前端术语"
+  },
+  "description": "首页看起来太廉价了，高级一点，上面那块要大气，下面加个联系方式",
+  "current_page": "首页",
+  "target_component": "Hero Section"
+}

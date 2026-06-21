@@ -1,0 +1,11 @@
+node_modules/
+dist/
+.DS_Store
+.workbuddy/
+*.log
+npm-debug.log*
+.env
+.env.local
+.env.*.local
+coverage/
+*.tsbuildinfo

@@ -1,0 +1,9 @@
+{
+  "_meta": {
+    "recommended_tools": ["debug_guide"],
+    "description": "Web 端调试 - 页面白屏场景"
+  },
+  "platform": "web",
+  "error_description": "点击提交按钮后页面白屏",
+  "current_info": {}
+}

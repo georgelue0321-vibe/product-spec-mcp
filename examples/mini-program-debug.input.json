@@ -1,0 +1,11 @@
+{
+  "_meta": {
+    "recommended_tools": ["debug_guide"],
+    "description": "小程序调试 - 真机白屏场景"
+  },
+  "platform": "mini_program",
+  "error_description": "真机上页面空白，开发者工具正常",
+  "current_info": {
+    "page_path": "pages/register/register"
+  }
+}
