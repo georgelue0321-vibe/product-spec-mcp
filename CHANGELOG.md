@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.3.20 - README cleanup
+
+- Moved maintainer notes out of the main README flow.
+- Replaced npm-rendered relative docs links with a GitHub maintainer link.
+- Removed client-specific WorkBuddy wording from the public README introduction.
+
 ## 0.3.19 - Local-first Gate release candidate
 
 - Added a shared `technicalProfile` across assist, interrogation, compile, architecture, and acceptance outputs.

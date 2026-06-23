@@ -19,11 +19,6 @@
 
 **不确定用哪个工具？** 先用 `product_spec_assist`，它会自动识别场景并调用合适的工具。
 
-## 维护索引
-
-- 更新 MCP 本体前，先看 [product-spec-mcp 更新经验索引](docs/product-spec-mcp-update-lessons.md)。
-- WorkBuddy 接入、运行环境和副本同步问题仍记录在 [WorkBuddy 坑点记录](docs/workbuddy-mcp-pitfalls.md)。
-
 ## Features
 
 This MCP Server provides 7 tools for product development workflow:
@@ -129,6 +124,16 @@ Add to `~/.config/opencode/opencode.json`:
 ```
 
 > Note: opencode uses the `mcp` key. `mcpServers` is a Claude-style config key and will fail schema validation in current opencode versions.
+
+## FAQ
+
+### Where are maintainer notes?
+
+If you plan to modify this MCP server itself, read the maintainer notes first:
+
+- [product-spec-mcp update lessons](https://github.com/georgelue0321-vibe/product-spec-mcp/blob/main/docs/product-spec-mcp-update-lessons.md)
+
+Client-specific integration notes are intentionally kept out of the main user flow. They live under `docs/` in the GitHub repository for maintainers who need them.
 
 ## Tools Documentation
 
