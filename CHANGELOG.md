@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.3.28 - Mimo JSON response hardening
+
+- Added `response_format: { type: "json_object" }` to Online Gate LLM calls.
+- Strengthened the remote gate prompt with a compact JSON example and stricter JSON-only instructions.
+- Made OpenAI-compatible response parsing tolerate content arrays, reasoning content, plain text choices, and fenced JSON.
+- Verified the deployed Worker can call `mimo-v2.5` and return a valid `data_visualization_site` decision.
+
 ## 0.3.27 - Mimo online gate default
 
 - Switched the Cloudflare Online Gate template default provider to Mimo's OpenAI-compatible endpoint.

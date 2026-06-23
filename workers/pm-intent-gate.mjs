@@ -137,7 +137,21 @@ function isAuthorized(request, env) {
 
 function buildGatePrompt(message, rule, choices) {
   return JSON.stringify({
-    task: "Choose the best PM gate only. Return strict JSON, no markdown.",
+    task: "Choose the best PM gate only. Return strict JSON only.",
+    example: {
+      bestGate: "data_visualization_site",
+      usageScope: "self",
+      maintenanceMode: "agent_assisted",
+      accessTopology: "single_device",
+      confidence: "medium",
+      strongSignals: ["xlsx"],
+      weakSignals: ["website"],
+      coreObjects: ["xlsx file"],
+      states: [],
+      actions: ["parse xlsx", "render chart"],
+      mustNotUse: ["admin_backend_by_default"],
+      boundaryQuestionIds: ["data_update_mode"],
+    },
     output: {
       bestGate: "one needType enum",
       usageScope: "one usageScope enum",
@@ -193,15 +207,25 @@ async function callOpenAiCompatible(llm, prompt) {
       model: llm.model,
       temperature: 0.1,
       max_tokens: 600,
+      response_format: { type: "json_object" },
       messages: [
-        { role: "system", content: "You are a terse product intent classifier. Output JSON only." },
+        {
+          role: "system",
+          content: [
+            "You are a terse product intent classifier.",
+            "Return exactly one valid JSON object.",
+            "Do not use markdown, code fences, comments, or prose.",
+            "Use only enum values supplied by the user.",
+          ].join(" "),
+        },
         { role: "user", content: prompt },
       ],
     }),
   });
   if (!response.ok) throw new Error(`${llm.provider}_http_${response.status}`);
   const data = await response.json();
-  const content = data?.choices?.[0]?.message?.content;
+  if (data?.error) throw new Error(`${llm.provider}_error_${data.error.code || data.error.type || "unknown"}`);
+  const content = extractOpenAiCompatibleContent(data);
   if (typeof content !== "string" || !content.trim()) throw new Error(`${llm.provider}_empty_content`);
   return content;
 }
@@ -210,19 +234,77 @@ function normalizeBaseUrl(baseUrl) {
   return String(baseUrl || "").replace(/\/+$/, "");
 }
 
+function extractOpenAiCompatibleContent(data) {
+  const choice = data?.choices?.[0];
+  const message = choice?.message || {};
+  const content = message.content;
+  if (typeof content === "string" && content.trim()) return content;
+  if (Array.isArray(content)) {
+    const text = content
+      .map((part) => {
+        if (typeof part === "string") return part;
+        if (typeof part?.text === "string") return part.text;
+        if (typeof part?.content === "string") return part.content;
+        return "";
+      })
+      .join("");
+    if (text.trim()) return text;
+  }
+  if (typeof message.reasoning_content === "string" && message.reasoning_content.trim()) return message.reasoning_content;
+  if (typeof choice?.text === "string" && choice.text.trim()) return choice.text;
+  if (typeof data?.output_text === "string" && data.output_text.trim()) return data.output_text;
+  return "";
+}
+
 function extractJson(text) {
   try {
     return JSON.parse(text);
   } catch {
-    const start = text.indexOf("{");
-    const end = text.lastIndexOf("}");
-    if (start < 0 || end <= start) return null;
+    const fenced = text.match(/```(?:json)?\s*([\s\S]*?)```/i);
+    if (fenced) {
+      try {
+        return JSON.parse(fenced[1]);
+      } catch {
+        // Continue to balanced object extraction below.
+      }
+    }
+    const candidate = extractFirstBalancedObject(text);
+    if (!candidate) return null;
     try {
-      return JSON.parse(text.slice(start, end + 1));
+      return JSON.parse(candidate);
     } catch {
       return null;
     }
   }
+}
+
+function extractFirstBalancedObject(text) {
+  const start = text.indexOf("{");
+  if (start < 0) return "";
+  let depth = 0;
+  let inString = false;
+  let escaped = false;
+  for (let i = start; i < text.length; i += 1) {
+    const char = text[i];
+    if (inString) {
+      if (escaped) {
+        escaped = false;
+      } else if (char === "\\") {
+        escaped = true;
+      } else if (char === "\"") {
+        inString = false;
+      }
+      continue;
+    }
+    if (char === "\"") {
+      inString = true;
+      continue;
+    }
+    if (char === "{") depth += 1;
+    if (char === "}") depth -= 1;
+    if (depth === 0) return text.slice(start, i + 1);
+  }
+  return "";
 }
 
 function sanitizeDecision(raw) {
