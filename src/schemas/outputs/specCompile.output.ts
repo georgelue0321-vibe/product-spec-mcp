@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { TechnicalProfileSchema } from "../technicalProfile.schema.js";
 
 export const SpecCompileOutputSchema = z.object({
   mode: z.enum(["not_ready", "draft", "formal"]),
@@ -6,6 +7,15 @@ export const SpecCompileOutputSchema = z.object({
     score: z.number(),
     status: z.string(),
   }),
+  inputConsumption: z
+    .object({
+      consumedAnswers: z.array(z.string()),
+      unusedAnswers: z.array(z.string()),
+      matchedDomain: z.string(),
+      confidence: z.enum(["high", "medium", "low"]),
+    })
+    .optional(),
+  technicalProfile: TechnicalProfileSchema.optional(),
   spec: z
     .object({
       productGoal: z.string(),
@@ -19,6 +29,15 @@ export const SpecCompileOutputSchema = z.object({
       nonGoals: z.array(z.string()),
       successCriteria: z.array(z.string()),
       assumptions: z.array(z.string()),
+      technicalProfile: TechnicalProfileSchema.optional(),
+      inputConsumption: z
+        .object({
+          consumedAnswers: z.array(z.string()),
+          unusedAnswers: z.array(z.string()),
+          matchedDomain: z.string(),
+          confidence: z.enum(["high", "medium", "low"]),
+        })
+        .optional(),
     })
     .optional(),
   confirmation: z
@@ -29,9 +48,9 @@ export const SpecCompileOutputSchema = z.object({
   clarification: z
     .object({
       missingFields: z.array(z.string()),
-      questions: z.array(z.unknown()),
-      defaultAssumptions: z.record(z.string()),
-    })
+        questions: z.array(z.unknown()),
+        defaultAssumptions: z.record(z.string()),
+      })
     .optional(),
   nextAction: z.object({
     type: z.enum(["answer_questions", "confirm_spec", "start_build"]),

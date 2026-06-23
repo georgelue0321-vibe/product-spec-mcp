@@ -1,8 +1,10 @@
 import { z } from "zod";
+import { TechnicalProfileSchema } from "../technicalProfile.schema.js";
 
 export const AcceptanceGenerateOutputSchema = z.object({
   productType: z.string(),
   platform: z.string(),
+  technicalProfile: TechnicalProfileSchema.optional(),
   categories: z.array(
     z.object({
       category: z.string(),

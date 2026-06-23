@@ -7,6 +7,7 @@ import { buildSpec } from "../core/promptBuilder.js";
 import { buildConfirmation } from "../core/confirmationBuilder.js";
 import { formatCompileResult } from "../core/markdownFormatter.js";
 import { buildCompileStructuredOutput } from "../core/structuredResultBuilder.js";
+import { buildTechnicalProfile } from "../core/technicalProfile.js";
 import type { z } from "zod";
 
 type Input = z.infer<typeof SpecCompileInputSchema>;
@@ -15,10 +16,14 @@ export function registerSpecCompile(server: McpServer): void {
   const handler = async (input: Input) => {
     const context = { ...input.answers };
     const readiness = calculateReadiness(input.raw_idea, context);
+    const technicalProfile = buildTechnicalProfile(input.raw_idea, context);
+
+    const hasStructuredAnswers = Object.keys(context).length >= 3;
 
     if (
       readiness.score < input.min_readiness_score &&
-      !input.allow_assumptions
+      !input.allow_assumptions &&
+      !hasStructuredAnswers
     ) {
       const clarification = generateClarification(
         input.raw_idea,
@@ -36,6 +41,7 @@ export function registerSpecCompile(server: McpServer): void {
         undefined,
         clarification
       );
+      structuredContent.technicalProfile = technicalProfile;
       return {
         content: [{ type: "text" as const, text: markdown }],
         structuredContent,
@@ -43,12 +49,17 @@ export function registerSpecCompile(server: McpServer): void {
     }
 
     const spec = buildSpec(input.raw_idea, context, readiness);
+    const effectiveReadiness = {
+      ...readiness,
+      score: spec.readinessScore,
+      status: spec.readinessStatus as typeof readiness.status,
+    };
     const confirmation = buildConfirmation(spec);
-    const mode = readiness.score < input.min_readiness_score ? "draft" : "formal";
-    const markdown = formatCompileResult(mode, readiness, undefined, spec, confirmation);
+    const mode = spec.isActionable && effectiveReadiness.score >= input.min_readiness_score ? "formal" : "draft";
+    const markdown = formatCompileResult(mode, effectiveReadiness, undefined, spec, confirmation);
     const structuredContent = buildCompileStructuredOutput(
       mode,
-      readiness,
+      effectiveReadiness,
       spec,
       confirmation
     );

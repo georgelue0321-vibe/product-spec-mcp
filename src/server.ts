@@ -10,7 +10,7 @@ import { registerProductSpecAssist } from "./tools/productSpecAssist.js";
 export function createServer(): McpServer {
   const server = new McpServer({
     name: "product-spec-mcp",
-    version: "1.0.0",
+    version: "0.3.19",
   });
 
   registerSpecInterrogate(server);

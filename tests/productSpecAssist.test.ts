@@ -30,6 +30,129 @@ describe("productSpecAssist", () => {
       expect(result.quickQuestions.find((q) => q.id === "user_login")?.defaultValue).toBe("none");
     });
 
+    it("should return AI SaaS quick questions for copywriting monetization tools", () => {
+      const result = executeAssist(
+        "我想做一个 AI 文案生成工具，用户输入产品介绍，系统帮他生成小红书文案。以后我想收费，可以按次数卖套餐。",
+        undefined,
+        "web",
+        "grill",
+        true
+      );
+      const quickQuestionIds = result.quickQuestions.map((q) => q.id);
+      const markdown = result.markdown;
+
+      expect(result.routedIntent.scenario).toBe("build_product");
+      expect(result.selectedTool).toBe("spec_interrogate");
+      expect(quickQuestionIds).toContain("llm_provider");
+      expect(quickQuestionIds).toContain("payment_and_quota");
+      expect(quickQuestionIds).toContain("account_and_auth");
+      expect(quickQuestionIds).toContain("content_safety");
+      expect(markdown).toContain("准备用哪个 AI 模型或 API");
+      expect(markdown).toContain("收费和扣次规则怎么设计");
+      expect(markdown).not.toContain("姓名+电话");
+      expect(markdown).not.toContain("Excel (.xlsx)");
+      expect(markdown).not.toContain("手机号去重");
+    });
+
+    it("should preserve AI SaaS context after user accepts defaults", () => {
+      const result = executeAssist(
+        "用户已确认全部使用默认值，请基于以下确认信息生成完整产品规格文档：一次生成3条，每条包含标题、正文、标签；先做可替换模型接口；免登录试用1次，购买前必须登录；MVP先按次套餐，后台人工发放次数。",
+        {
+          generation_input_schema: "产品名称+产品介绍+目标人群+卖点",
+          generation_output_spec: "一次生成3条，包含标题、正文、标签",
+          llm_provider: "可替换模型接口",
+          account_and_auth: "免登录试用1次，购买前必须登录",
+          payment_and_quota: "MVP先按次套餐，后台人工发放次数",
+          history_and_storage: "保存最近生成历史和扣次记录",
+          content_safety: "内置基础敏感词和营销风险提示",
+          admin_metrics: "MVP看用户+订单+剩余次数",
+        },
+        "web",
+        "normal",
+        true
+      );
+      const quickQuestionIds = result.quickQuestions.map((q) => q.id);
+
+      expect(result.routedIntent.scenario).toBe("build_product");
+      expect(result.selectedTool).toBe("spec_interrogate");
+      expect(quickQuestionIds).toContain("llm_provider");
+      expect(quickQuestionIds).toContain("payment_and_quota");
+      expect(result.markdown).toContain("AI 模型或 API");
+      expect(result.markdown).not.toContain("报名数据怎么保存");
+      expect(result.markdown).not.toContain("姓名+电话");
+      expect(result.markdown).not.toContain("Excel (.xlsx)");
+      expect(result.markdown).not.toContain("手机号去重");
+    });
+
+    it("should ask commerce questions for digital product stores", () => {
+      const result = executeAssist(
+        "我想做一个数字资料售卖网站，用户可以浏览资料包、下单购买，支付成功后才能下载文件。管理员能上架资料、看订单和下载记录。MVP 可以先用 mock 支付。",
+        undefined,
+        "web",
+        "normal",
+        true
+      );
+      const quickQuestionIds = result.quickQuestions.map((q) => q.id);
+      const markdown = result.markdown;
+
+      expect(result.routedIntent.scenario).toBe("build_product");
+      expect(result.selectedTool).toBe("spec_interrogate");
+      expect(quickQuestionIds).toContain("product_catalog");
+      expect(quickQuestionIds).toContain("order_flow");
+      expect(quickQuestionIds).toContain("payment_provider");
+      expect(quickQuestionIds).toContain("download_permission");
+      expect(quickQuestionIds).toContain("admin_features");
+      expect(markdown).toContain("资料包需要哪些商品信息");
+      expect(markdown).toContain("支付成功后如何开放下载");
+      expect(markdown).not.toContain("报名数据怎么保存");
+      expect(markdown).not.toContain("手机号去重");
+      expect(markdown).not.toContain("一次生成几条文案");
+    });
+
+    it("should ask appointment questions without falling back to registration", () => {
+      const result = executeAssist(
+        "我想做一个预约服务系统，用户可以选择服务项目和时间段提交预约。后台可以看到预约列表、设置可预约时间段、限制每个时间段的人数。用户提交后可以收到确认信息，最好也能取消预约。MVP 先不接支付。",
+        undefined,
+        "web",
+        "normal",
+        true
+      );
+      const quickQuestionIds = result.quickQuestions.map((q) => q.id);
+      const markdown = result.markdown;
+
+      expect(result.routedIntent.scenario).toBe("build_product");
+      expect(result.selectedTool).toBe("spec_interrogate");
+      expect(quickQuestionIds).toContain("service_catalog");
+      expect(quickQuestionIds).toContain("time_slot_rule");
+      expect(quickQuestionIds).toContain("capacity_rule");
+      expect(quickQuestionIds).toContain("cancel_rule");
+      expect(quickQuestionIds).toContain("admin_schedule");
+      expect(markdown).toContain("服务项目");
+      expect(markdown).toContain("时间段");
+      expect(markdown).toContain("每个时间段的人数");
+      expect(markdown).not.toContain("报名数据怎么保存");
+      expect(markdown).not.toContain("手机号去重");
+      expect(markdown).not.toContain("导出 Excel");
+      expect(markdown).not.toContain("资料包");
+      expect(markdown).not.toContain("AI 模型");
+    });
+
+    it("should warn when product intent does not match a stable domain pack", () => {
+      const result = executeAssist(
+        "我想做一个设备资产管理系统，记录设备台账、借用归还、维修记录、责任人、状态变更，管理员可以筛选设备和处理维修。",
+        undefined,
+        "web",
+        "normal",
+        true
+      );
+
+      expect(result.routedIntent.scenario).toBe("build_product");
+      expect(result.selectedTool).toBe("spec_interrogate");
+      expect(result.markdown).toContain("未命中稳定 domain pack");
+      expect(result.agentGuidance.join("\n")).toContain("未命中稳定 domain pack");
+      expect(result.markdown).not.toContain("报名数据怎么保存");
+    });
+
     it("should tell agents not to rewrite quick questions", () => {
       const result = executeAssist("我想做一个活动报名系统");
 
@@ -224,6 +347,73 @@ describe("productSpecAssist", () => {
       expect(result.markdown).not.toContain("可以直接上线");
       expect(result.markdown).toContain("不要声称上线已就绪");
       expect(result.markdown).toContain("缺口");
+    });
+  });
+
+  describe("personal local tools", () => {
+    it("should ask local-first questions for beginner tools", () => {
+      const result = executeAssist("我想做一个个人订阅续费提醒小工具，自己用，纯前端本地保存，不登录。");
+
+      const dataStorage = result.quickQuestions.find((q) => q.id === "data_storage");
+      const loginNeed = result.quickQuestions.find((q) => q.id === "login_need");
+      const resultText = `${result.markdown}\n${JSON.stringify(result.result)}`;
+
+      expect(dataStorage?.defaultValue).toBe("local_file");
+      expect(dataStorage?.options[0].value).toBe("local_storage");
+      expect(loginNeed?.defaultValue).toBe("none");
+      expect(result.quickQuestions.map((q) => q.id)).not.toContain("dedup_strategy");
+      expect(resultText).not.toContain("报名数据怎么保存");
+      expect(resultText).not.toContain("手机号去重");
+      expect(resultText).not.toContain("导出 Excel");
+    });
+
+    it("should treat browser-stored checklists as local beginner tools", () => {
+      const result = executeAssist(
+        "我想做一个露营装备清单 HTML，记录帐篷、炉具、餐具、药品、补货状态和备注，数据存在浏览器里。"
+      );
+
+      const dataStorage = result.quickQuestions.find((q) => q.id === "data_storage");
+      const resultText = `${result.markdown}\n${JSON.stringify(result.result)}\n${JSON.stringify(result.quickQuestions)}`;
+
+      expect(dataStorage?.defaultValue).toBe("local_file");
+      expect(dataStorage?.options[0].value).toBe("local_storage");
+      expect(result.quickQuestions.map((q) => q.id)).not.toContain("dedup_strategy");
+      expect(resultText).not.toContain("报名数据怎么保存");
+      expect(resultText).not.toContain("手机号去重");
+      expect(resultText).not.toContain("导出 Excel");
+      expect(resultText).not.toContain("管理员登录才能访问");
+    });
+
+    it("should expose technicalProfile and examples for travel map data pages", () => {
+      const result = executeAssist(
+        "我想做一个旅行攻略 HTML，用 data.json 保存美食、酒店、景点，还要在地图上看点位和按分类筛选。"
+      );
+
+      expect(result.technicalProfile?.shape).toBe("static_json_data_page");
+      expect(result.technicalProfile?.frontendOnly).toBe(true);
+      expect(result.quickQuestions.every((q) => q.example && q.example.includes("比如"))).toBe(true);
+      expect(result.quickQuestions.some((q) => q.id === "map_provider")).toBe(true);
+      expect(result.markdown).not.toContain("手机号去重");
+      expect(result.markdown).not.toContain("管理员登录");
+    });
+
+    it("should treat internal knowledge bases as backend products, not launch or local tools", () => {
+      const result = executeAssist(
+        "我想做一个内部知识库，可以写文档、发布文档、按分类搜索。草稿只有自己能看，发布后团队能看。不接 AI，不接支付。",
+        undefined,
+        "web",
+        "normal",
+        true
+      );
+
+      expect(result.routedIntent.scenario).toBe("build_product");
+      expect(result.selectedTool).toBe("spec_interrogate");
+      expect(result.technicalProfile?.shape).toBe("light_backend_json_sqlite");
+      expect(result.technicalProfile?.frontendOnly).toBe(false);
+      expect(result.quickQuestions.map((q) => q.id)).toContain("document_fields");
+      expect(result.quickQuestions.map((q) => q.id)).toContain("permission_rule");
+      expect(result.markdown).not.toContain("上线前缺口检查");
+      expect(result.markdown).not.toContain("手机号去重");
     });
   });
 

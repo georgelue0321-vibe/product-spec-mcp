@@ -24,6 +24,7 @@ export function registerProductSpecAssist(server: McpServer): void {
         executed: result.executed,
         result: result.result ?? null,
         nextAction: result.nextAction,
+        technicalProfile: result.technicalProfile,
         quickQuestions: result.quickQuestions,
         agentGuidance: result.agentGuidance,
       },

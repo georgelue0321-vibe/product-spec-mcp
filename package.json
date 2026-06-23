@@ -1,6 +1,6 @@
 {
   "name": "product-spec-mcp",
-  "version": "1.0.0",
+  "version": "0.3.19",
   "description": "MCP Server for product specification - requirement interrogation, architecture decision, UI translation, debug guidance, and acceptance generation",
   "type": "commonjs",
   "main": "dist/index.cjs",
@@ -18,11 +18,11 @@
     "clean": "node -e \"require('fs').rmSync('dist',{recursive:true,force:true})\"",
     "build": "npm run clean && esbuild src/index.ts --bundle --platform=node --outfile=dist/index.cjs --format=cjs",
     "typecheck": "tsc --noEmit --skipLibCheck --isolatedModules",
-    "test": "vitest run",
+    "test": "npm run build && vitest run",
     "test:watch": "vitest",
     "start": "node dist/index.cjs",
     "dev": "tsx src/index.ts",
-    "prepublishOnly": "npm run typecheck && npm test && npm run build"
+    "prepublishOnly": "npm run typecheck && npm test"
   },
   "keywords": [
     "mcp",

@@ -6,6 +6,7 @@ import type { ArchitectureDecision } from "./architectureEngine.js";
 import type { UiTranslation } from "./uiPromptEngine.js";
 import type { DebugGuideResult } from "./debugEngine.js";
 import type { AcceptanceResult } from "./acceptanceEngine.js";
+import type { TechnicalProfile } from "./technicalProfile.js";
 import type { SpecInterrogateOutput } from "../schemas/outputs/specInterrogate.output.js";
 import type { SpecCompileOutput } from "../schemas/outputs/specCompile.output.js";
 import type { AcceptanceGenerateOutput } from "../schemas/outputs/acceptanceGenerate.output.js";
@@ -15,7 +16,8 @@ import type { DebugGuideOutput } from "../schemas/outputs/debugGuide.output.js";
 
 export function buildInterrogateStructuredOutput(
   readiness: ReadinessResult,
-  clarification: ClarificationResult
+  clarification: ClarificationResult,
+  technicalProfile?: TechnicalProfile
 ): SpecInterrogateOutput {
   const canProceed = readiness.status !== "Not Ready";
   return {
@@ -38,6 +40,7 @@ export function buildInterrogateStructuredOutput(
           : "信息部分完整，可以生成草案"
         : "信息不足，需要先回答追问",
     },
+    technicalProfile,
   };
 }
 
@@ -68,6 +71,8 @@ export function buildCompileStructuredOutput(
       score: readiness.score,
       status: readiness.status,
     },
+    inputConsumption: spec?.inputConsumption,
+    technicalProfile: spec?.technicalProfile,
     spec: spec
       ? {
           productGoal: spec.productGoal,
@@ -81,6 +86,8 @@ export function buildCompileStructuredOutput(
           nonGoals: spec.nonGoals,
           successCriteria: spec.successCriteria,
           assumptions: spec.assumptions,
+          technicalProfile: spec.technicalProfile,
+          inputConsumption: spec.inputConsumption,
         }
       : undefined,
     confirmation: confirmation
@@ -129,6 +136,7 @@ export function buildAcceptanceStructuredOutput(
   return {
     productType: acceptance.productType,
     platform: acceptance.platform,
+    technicalProfile: acceptance.technicalProfile,
     categories: acceptance.categories,
     definitionOfDone: acceptance.definitionOfDone,
     checklist,
@@ -139,8 +147,26 @@ export function buildArchitectureStructuredOutput(
   decision: ArchitectureDecision
 ): ArchitectureDecideOutput {
   const blockers: string[] = [];
-  if (decision.paymentRisk) blockers.push("支付回调必须后端处理");
+  if (decision.paymentRisk) blockers.push("支付回调和支付金额必须后端处理");
   if (decision.aiKeyRisk) blockers.push("AI API Key 不能暴露在前端");
+  if (decision.needAuth) blockers.push("登录态和权限校验必须后端处理");
+  if (decision.needAdmin) {
+    if (decision.domain === "content_community") {
+      blockers.push("文章审核、评论隐藏和举报处理接口必须管理员鉴权");
+    } else if (decision.domain === "appointment") {
+      blockers.push("服务、时间段和预约管理接口必须管理员鉴权");
+    } else if (decision.domain === "digital_commerce") {
+      blockers.push("商品、订单和下载记录接口必须管理员鉴权");
+    } else if (decision.domain === "ticket_workflow") {
+      blockers.push("工单分派、处理人权限和状态流转接口必须后端鉴权");
+    } else if (decision.domain === "knowledge_base") {
+      blockers.push("文档草稿、发布、权限和搜索接口必须后端鉴权并按权限过滤");
+    } else if (decision.domain === "crm") {
+      blockers.push("客户归属、销售权限、负责人分配和跟进记录接口必须后端鉴权");
+    } else {
+      blockers.push("后台列表、搜索和导出接口必须鉴权");
+    }
+  }
 
   const riskLevel = blockers.length > 0 ? "high" : decision.needBackend ? "medium" : "low";
 
@@ -155,10 +181,13 @@ export function buildArchitectureStructuredOutput(
       needLogging: decision.needLogging,
       paymentRisk: decision.paymentRisk,
       aiKeyRisk: decision.aiKeyRisk,
+      capacityRisk: decision.capacityRisk,
+      domain: decision.domain,
       mvpSuggestion: decision.mvpSuggestion,
       productionSuggestion: decision.productionSuggestion,
       reasoning: decision.reasoning,
     },
+    technicalProfile: decision.technicalProfile,
     riskLevel,
     blockers,
   };

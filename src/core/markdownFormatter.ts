@@ -45,6 +45,9 @@ export function formatInterrogateResult(
 
   for (const q of clarification.questions) {
     md += `### ${q.question}\n`;
+    if (q.example) {
+      md += `- **举个例子:** ${q.example}\n`;
+    }
     md += `- **为什么要问:** ${q.whyImportant}\n`;
     md += `- **推荐选项:** ${q.options.join(" / ")}\n`;
     md += `- **默认假设:** 如果不回答，默认为「${q.defaultAssumption}」\n\n`;
@@ -109,6 +112,7 @@ ${formatInterrogateResult(readiness, clarification)}`;
 - **产品目标:** ${spec.productGoal}
 - **目标用户:** ${spec.targetUser}
 - **运行平台:** ${spec.platform}
+${formatTechnicalProfileSection(spec.technicalProfile)}
 
 ## 核心功能
 
@@ -148,6 +152,7 @@ ${spec.riskBoundaries.length > 0 ? spec.riskBoundaries.map((r) => `- ⚠️ ${r}
 - **产品目标:** ${spec.productGoal}
 - **目标用户:** ${spec.targetUser}
 - **运行平台:** ${spec.platform}
+${formatTechnicalProfileSection(spec.technicalProfile)}
 
 ## 架构建议
 
@@ -217,18 +222,49 @@ export function formatArchitectureResult(decision: ArchitectureDecision): string
 - **数据库:** ${decision.recommendedDatabase}
 - **MVP 方案:** ${decision.mvpSuggestion}
 - **正式方案:** ${decision.productionSuggestion}
+${formatTechnicalProfileSection(decision.technicalProfile)}
 
 ## 风险提示
 
 `;
 
+  let hasRisk = false;
+
   if (decision.paymentRisk) {
-    md += `- ⚠️ **支付风险:** 必须后端处理支付回调，不能只靠前端跳转判断支付成功\n`;
+    md += `- ⚠️ **支付风险:** 必须后端处理支付回调或订单查询，不能只靠前端跳转判断支付成功；支付金额和套餐价格必须由后端计算，不能信任前端传入金额\n`;
+    hasRisk = true;
   }
   if (decision.aiKeyRisk) {
     md += `- ⚠️ **AI Key 风险:** API Key 不能暴露在前端，必须后端代理\n`;
+    hasRisk = true;
   }
-  if (!decision.paymentRisk && !decision.aiKeyRisk) {
+  if (decision.capacityRisk) {
+    md += `- ⚠️ **容量并发风险:** 预约容量、满员判断和取消释放容量必须由后端校验，不能只靠前端判断\n`;
+    hasRisk = true;
+  }
+  if (decision.needAuth) {
+    md += `- ⚠️ **鉴权风险:** 登录态和权限校验必须在后端完成，管理员密码不能写在前端代码里\n`;
+    hasRisk = true;
+  }
+  if (decision.needAdmin) {
+    if (decision.domain === "appointment") {
+      md += `- ⚠️ **后台数据风险:** 管理后台包含服务项目、时间段和预约记录，后台接口必须鉴权\n`;
+    } else if (decision.domain === "digital_commerce") {
+      md += `- ⚠️ **后台数据风险:** 管理后台包含商品、订单和下载记录，后台接口必须鉴权\n`;
+    } else if (decision.domain === "content_community") {
+      md += `- ⚠️ **后台审核风险:** 管理后台包含文章审核、评论隐藏和举报处理，后台接口必须鉴权并保留操作追踪\n`;
+    } else if (decision.domain === "ticket_workflow") {
+      md += `- ⚠️ **工单权限风险:** 工单分派、处理人权限、状态流转和操作记录必须在后端校验并可追踪\n`;
+    } else if (decision.domain === "knowledge_base") {
+      md += `- ⚠️ **文档权限风险:** draft 文档、published 文档可见范围、搜索结果和管理员发布/撤回操作必须在后端校验并可追踪\n`;
+    } else if (decision.domain === "crm") {
+      md += `- ⚠️ **客户权限风险:** 销售只能访问自己负责的客户；负责人分配、客户阶段更新、跟进记录和筛选结果必须在后端鉴权并可追踪\n`;
+    } else {
+      md += `- ⚠️ **后台数据风险:** 管理后台和导出文件可能包含手机号等敏感数据，列表、搜索和导出接口必须鉴权\n`;
+    }
+    hasRisk = true;
+  }
+  if (!hasRisk) {
     md += `- 无特殊风险\n`;
   }
 
@@ -240,6 +276,22 @@ export function formatArchitectureResult(decision: ArchitectureDecision): string
   }
 
   return md;
+}
+
+function formatTechnicalProfileSection(profile?: { shape: string; suggestedStorage: string; evidence: string[]; blockers: string[] }): string {
+  if (!profile) return "";
+
+  const evidence = profile.evidence.length > 0 ? profile.evidence.join("；") : "未识别到明确证据";
+  const blockers = profile.blockers.length > 0 ? profile.blockers.join("；") : "无明显阻断项";
+  return `
+
+## 技术复杂度判断
+
+- **形态:** ${profile.shape}
+- **建议存储:** ${profile.suggestedStorage}
+- **判断依据:** ${evidence}
+- **阻断项:** ${blockers}
+`;
 }
 
 export function formatUiTranslateResult(translation: UiTranslation): string {

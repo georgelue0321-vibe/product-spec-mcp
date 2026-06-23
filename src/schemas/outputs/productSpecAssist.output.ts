@@ -3,10 +3,12 @@ import { SpecInterrogateOutputSchema } from "./specInterrogate.output.js";
 import { UiTranslateOutputSchema } from "./uiTranslate.output.js";
 import { DebugGuideOutputSchema } from "./debugGuide.output.js";
 import { ArchitectureDecideOutputSchema } from "./architectureDecide.output.js";
+import { TechnicalProfileSchema } from "../technicalProfile.schema.js";
 
 const QuickQuestionSchema = z.object({
   id: z.string(),
   question: z.string(),
+  example: z.string().optional(),
   whyImportant: z.string(),
   priority: z.enum(["P0", "P1", "P2"]),
   defaultValue: z.string(),
@@ -49,6 +51,7 @@ export const ProductSpecAssistOutputSchema = z.object({
     message: z.string(),
     suggestedTool: z.string().optional(),
   }),
+  technicalProfile: TechnicalProfileSchema.optional(),
   quickQuestions: z.array(QuickQuestionSchema),
   agentGuidance: z.array(z.string()),
 });

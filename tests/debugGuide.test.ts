@@ -39,4 +39,14 @@ describe("debugGuide", () => {
     });
     expect(result.checklist.some((c) => c.includes("☑"))).toBe(true);
   });
+
+  it("should ask for backend logs and AI API checks for AI generation failures", () => {
+    const result = generateDebugGuide("web", "AI 文案生成工具点击生成后一直 loading，最后提示失败。");
+    const steps = result.troubleshootingSteps.join("\n");
+
+    expect(steps).toContain("后端日志");
+    expect(steps).toContain("request_id");
+    expect(steps).toContain("AI API Key");
+    expect(steps).toContain("限流");
+  });
 });

@@ -54,7 +54,13 @@ function buildTroubleshootingSteps(platform: string, errorDesc: string): string[
     steps.push("2. 查看 Console 标签页是否有红色报错");
     steps.push("3. 查看 Network 标签页是否有失败请求（红色）");
     steps.push("4. 点击失败请求，查看 Status Code 和 Response");
-    steps.push("5. 尝试清除缓存并硬刷新 (Ctrl+Shift+R)");
+    steps.push("5. 记录失败请求对应的 request_id，并查看后端日志或服务端日志");
+    if (isAiGenerationIssue(errorDesc)) {
+      steps.push("6. 检查后端代理是否正确读取 AI API Key，确认模型额度、超时和限流状态");
+      steps.push("7. 确认后端对 AI 调用失败有错误日志，且前端不要只看 toast 文案判断原因");
+    } else {
+      steps.push("6. 尝试清除缓存并硬刷新 (Ctrl+Shift+R)");
+    }
   } else if (platform === "mini_program") {
     steps.push("1. 在微信开发者工具中查看 Console");
     steps.push("2. 检查 Network 面板中的请求");
@@ -88,4 +94,8 @@ function buildTroubleshootingSteps(platform: string, errorDesc: string): string[
   }
 
   return steps;
+}
+
+function isAiGenerationIssue(errorDesc: string): boolean {
+  return /AI|ai|GPT|gpt|模型|生成|文案|loading|额度|限流|API Key|密钥/.test(errorDesc);
 }

@@ -89,4 +89,40 @@ describe("clarificationEngine", () => {
       expect(q.priority).toBeDefined();
     }
   });
+
+  it("should generate domain-specific questions for AI copywriting monetization tools", () => {
+    const rawIdea =
+      "我想做一个 AI 文案生成工具，用户输入产品介绍，系统帮他生成小红书文案。以后我想收费，可以按次数卖套餐。";
+    const readiness = calculateReadiness(rawIdea, {
+      monetization: "按次数卖套餐",
+      target_users: "小红书博主、电商卖家、品牌运营",
+      core_feature: "输入产品信息生成小红书文案",
+      platform: "Web",
+    });
+    const result = generateClarification(
+      rawIdea,
+      readiness,
+      "build_product",
+      "web",
+      "grill",
+      {
+        monetization: "按次数卖套餐",
+        target_users: "小红书博主、电商卖家、品牌运营",
+        core_feature: "输入产品信息生成小红书文案",
+        platform: "Web",
+      }
+    );
+
+    const questionText = result.questions.map((q) => `${q.field} ${q.question} ${q.options.join(" ")}`).join("\n");
+
+    expect(questionText).toContain("generation_output_spec");
+    expect(questionText).toContain("llm_provider");
+    expect(questionText).toContain("account_and_auth");
+    expect(questionText).toContain("payment_and_quota");
+    expect(questionText).toContain("content_safety");
+    expect(questionText).not.toContain("姓名+电话");
+    expect(questionText).not.toContain("Excel");
+    expect(questionText).not.toContain("手机号去重");
+    expect(questionText).not.toContain("提交后需要审核");
+  });
 });

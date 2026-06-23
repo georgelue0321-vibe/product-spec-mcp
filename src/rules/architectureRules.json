@@ -56,7 +56,7 @@
     },
     {
       "condition": {
-        "features_include": ["后台", "管理", "审核", "权限", "多人", "协作"]
+        "features_include": ["后台", "审核", "权限", "多人", "协作"]
       },
       "result": {
         "can_be_frontend_only": false,

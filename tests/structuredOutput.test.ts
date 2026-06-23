@@ -97,7 +97,10 @@ describe("structuredOutput", () => {
 
       expect(output.mode).toBe("formal");
       expect(output.spec).toBeDefined();
+      expect(output.technicalProfile).toBeDefined();
+      expect(output.spec!.technicalProfile).toBeDefined();
       expect(output.spec!.productGoal).toBe(spec.productGoal);
+      expect(output.inputConsumption).toEqual(output.spec!.inputConsumption);
       expect(output.confirmation).toBeDefined();
       expect(output.nextAction.type).toBe("start_build");
     });
@@ -137,6 +140,7 @@ describe("structuredOutput", () => {
 
       expect(output.productType).toBe("表单工具");
       expect(output.platform).toBe("web");
+      expect(output.technicalProfile).toBeDefined();
       expect(Array.isArray(output.categories)).toBe(true);
       expect(Array.isArray(output.checklist)).toBe(true);
       expect(output.checklist.length).toBeGreaterThan(0);
@@ -168,6 +172,7 @@ describe("structuredOutput", () => {
       const output = buildArchitectureStructuredOutput(decision);
 
       expect(output.decision).toBeDefined();
+      expect(output.technicalProfile).toBeDefined();
       expect(output.riskLevel).toBeDefined();
       expect(Array.isArray(output.blockers)).toBe(true);
     });
@@ -251,6 +256,7 @@ describe("structuredOutput", () => {
         executed: result.executed,
         result: result.result ?? null,
         nextAction: result.nextAction,
+        technicalProfile: result.technicalProfile,
         quickQuestions: result.quickQuestions,
         agentGuidance: result.agentGuidance,
       };
@@ -268,6 +274,7 @@ describe("structuredOutput", () => {
         executed: result.executed,
         result: result.result ?? null,
         nextAction: result.nextAction,
+        technicalProfile: result.technicalProfile,
         quickQuestions: result.quickQuestions,
         agentGuidance: result.agentGuidance,
       };
@@ -286,6 +293,7 @@ describe("structuredOutput", () => {
         executed: result.executed,
         result: result.result ?? null,
         nextAction: result.nextAction,
+        technicalProfile: result.technicalProfile,
         quickQuestions: result.quickQuestions,
         agentGuidance: result.agentGuidance,
       };

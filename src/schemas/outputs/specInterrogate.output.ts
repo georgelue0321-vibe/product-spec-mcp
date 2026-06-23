@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { TechnicalProfileSchema } from "../technicalProfile.schema.js";
 
 export const SpecInterrogateOutputSchema = z.object({
   readiness: z.object({
@@ -18,6 +19,7 @@ export const SpecInterrogateOutputSchema = z.object({
       z.object({
         field: z.string(),
         question: z.string(),
+        example: z.string().optional(),
         whyImportant: z.string(),
         options: z.array(z.string()),
         defaultAssumption: z.string(),
@@ -31,6 +33,7 @@ export const SpecInterrogateOutputSchema = z.object({
     suggestedNextTool: z.enum(["spec_compile", "spec_interrogate"]),
     reason: z.string(),
   }),
+  technicalProfile: TechnicalProfileSchema.optional(),
 });
 
 export type SpecInterrogateOutput = z.infer<typeof SpecInterrogateOutputSchema>;

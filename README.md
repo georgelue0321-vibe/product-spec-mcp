@@ -19,6 +19,11 @@
 
 **不确定用哪个工具？** 先用 `product_spec_assist`，它会自动识别场景并调用合适的工具。
 
+## 维护索引
+
+- 更新 MCP 本体前，先看 [product-spec-mcp 更新经验索引](docs/product-spec-mcp-update-lessons.md)。
+- WorkBuddy 接入、运行环境和副本同步问题仍记录在 [WorkBuddy 坑点记录](docs/workbuddy-mcp-pitfalls.md)。
+
 ## Features
 
 This MCP Server provides 7 tools for product development workflow:
@@ -100,6 +105,30 @@ Add to your Continue configuration:
   }
 }
 ```
+
+### opencode
+
+Add to `~/.config/opencode/opencode.json`:
+
+```json
+{
+  "$schema": "https://opencode.ai/config.json",
+  "mcp": {
+    "product-spec": {
+      "type": "local",
+      "command": [
+        "node",
+        "/path/to/product-spec-mcp/dist/index.cjs"
+      ],
+      "cwd": "/path/to/product-spec-mcp",
+      "enabled": true,
+      "timeout": 30000
+    }
+  }
+}
+```
+
+> Note: opencode uses the `mcp` key. `mcpServers` is a Claude-style config key and will fail schema validation in current opencode versions.
 
 ## Tools Documentation
 
