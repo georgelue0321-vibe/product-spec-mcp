@@ -41,9 +41,33 @@ wrangler kv namespace create PROMPT_CACHE
 wrangler d1 create product-spec-prompt-samples
 wrangler d1 execute product-spec-prompt-samples --file schema.sql
 wrangler secret put GATE_TOKEN
-wrangler secret put DEEPSEEK_API_KEY
+wrangler secret put MIMO_API_KEY
 wrangler secret put RATE_LIMIT_SALT
 wrangler deploy
+```
+
+Default LLM provider:
+
+```toml
+[vars]
+LLM_PROVIDER = "mimo"
+LLM_BASE_URL = "https://token-plan-cn.xiaomimimo.com/v1"
+LLM_MODEL = "mimo-v2.5"
+```
+
+To switch later to DeepSeek, change the Worker vars to:
+
+```toml
+[vars]
+LLM_PROVIDER = "deepseek"
+LLM_BASE_URL = "https://api.deepseek.com"
+LLM_MODEL = "deepseek-chat"
+```
+
+Then set:
+
+```bash
+wrangler secret put DEEPSEEK_API_KEY
 ```
 
 Runtime behavior:

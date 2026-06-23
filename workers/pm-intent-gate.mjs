@@ -1,5 +1,9 @@
 const GATE_SCHEMA_VERSION = "pm-gate-v1";
-const DEFAULT_MODEL = "deepseek-chat";
+const DEFAULT_PROVIDER = "mimo";
+const DEFAULT_MIMO_BASE_URL = "https://token-plan-cn.xiaomimimo.com/v1";
+const DEFAULT_MIMO_MODEL = "mimo-v2.5";
+const DEFAULT_DEEPSEEK_BASE_URL = "https://api.deepseek.com";
+const DEFAULT_DEEPSEEK_MODEL = "deepseek-chat";
 const DAILY_LIMIT = 3;
 
 export default {
@@ -25,8 +29,8 @@ export default {
     const telemetryMode = normalizeTelemetry(request.headers.get("x-product-spec-telemetry") || "off");
     const message = String(body.message || "").slice(0, 500);
     const messageHash = body.messageHash || await sha256(normalizeText(message));
-    const model = env.DEEPSEEK_MODEL || DEFAULT_MODEL;
-    const cacheKey = `cache:${model}:${messageHash}:${GATE_SCHEMA_VERSION}`;
+    const llm = resolveLlmConfig(env);
+    const cacheKey = `cache:${llm.provider}:${llm.model}:${messageHash}:${GATE_SCHEMA_VERSION}`;
     const cached = await env.PROMPT_CACHE?.get(cacheKey, "json");
     const ipKey = await rateLimitKey(request, env);
     const resetAt = nextShanghaiMidnightIso();
@@ -41,8 +45,8 @@ export default {
         decision: cached.decision,
         llmGate: {
           used: false,
-          provider: "deepseek",
-          model,
+          provider: llm.provider,
+          model: llm.model,
           promptTokensApprox: cached.promptTokensApprox || 0,
           completionTokensApprox: cached.completionTokensApprox || 0,
           cacheHit: true,
@@ -66,7 +70,7 @@ export default {
       });
       return json({
         decision: fallbackDecision(body.ruleDecision),
-        llmGate: { used: false, provider: "deepseek", model, cacheHit: false },
+        llmGate: { used: false, provider: llm.provider, model: llm.model, cacheHit: false },
         rateLimit: { limit: DAILY_LIMIT, remaining: 0, resetAt },
         privacy: privacyResult(telemetryMode),
       }, 429);
@@ -79,7 +83,7 @@ export default {
     let completionTokensApprox = 0;
     let fallbackReason = "";
     try {
-      const llmText = await callDeepSeek(env, model, prompt);
+      const llmText = await callOpenAiCompatible(llm, prompt);
       completionTokensApprox = approxTokens(llmText);
       llmDecision = sanitizeDecision(extractJson(llmText));
       if (!llmDecision) fallbackReason = "invalid_llm_schema";
@@ -109,8 +113,8 @@ export default {
       decision: finalDecision,
       llmGate: {
         used: Boolean(llmDecision),
-        provider: "deepseek",
-        model,
+        provider: llm.provider,
+        model: llm.model,
         promptTokensApprox,
         completionTokensApprox,
         cacheHit: false,
@@ -159,16 +163,34 @@ function buildGatePrompt(message, rule, choices) {
   });
 }
 
-async function callDeepSeek(env, model, prompt) {
-  if (!env.DEEPSEEK_API_KEY) throw new Error("missing_deepseek_api_key");
-  const response = await fetch("https://api.deepseek.com/chat/completions", {
+function resolveLlmConfig(env) {
+  const provider = String(env.LLM_PROVIDER || DEFAULT_PROVIDER).toLowerCase();
+  if (provider === "deepseek") {
+    return {
+      provider,
+      baseUrl: env.LLM_BASE_URL || env.DEEPSEEK_BASE_URL || DEFAULT_DEEPSEEK_BASE_URL,
+      model: env.LLM_MODEL || env.DEEPSEEK_MODEL || DEFAULT_DEEPSEEK_MODEL,
+      apiKey: env.LLM_API_KEY || env.DEEPSEEK_API_KEY,
+    };
+  }
+  return {
+    provider: "mimo",
+    baseUrl: env.LLM_BASE_URL || env.MIMO_BASE_URL || DEFAULT_MIMO_BASE_URL,
+    model: env.LLM_MODEL || env.MIMO_MODEL || DEFAULT_MIMO_MODEL,
+    apiKey: env.LLM_API_KEY || env.MIMO_API_KEY,
+  };
+}
+
+async function callOpenAiCompatible(llm, prompt) {
+  if (!llm.apiKey) throw new Error(`missing_${llm.provider}_api_key`);
+  const response = await fetch(`${normalizeBaseUrl(llm.baseUrl)}/chat/completions`, {
     method: "POST",
     headers: {
       "content-type": "application/json",
-      authorization: `Bearer ${env.DEEPSEEK_API_KEY}`,
+      authorization: `Bearer ${llm.apiKey}`,
     },
     body: JSON.stringify({
-      model,
+      model: llm.model,
       temperature: 0.1,
       max_tokens: 600,
       messages: [
@@ -177,11 +199,15 @@ async function callDeepSeek(env, model, prompt) {
       ],
     }),
   });
-  if (!response.ok) throw new Error(`deepseek_http_${response.status}`);
+  if (!response.ok) throw new Error(`${llm.provider}_http_${response.status}`);
   const data = await response.json();
   const content = data?.choices?.[0]?.message?.content;
-  if (typeof content !== "string" || !content.trim()) throw new Error("deepseek_empty_content");
+  if (typeof content !== "string" || !content.trim()) throw new Error(`${llm.provider}_empty_content`);
   return content;
+}
+
+function normalizeBaseUrl(baseUrl) {
+  return String(baseUrl || "").replace(/\/+$/, "");
 }
 
 function extractJson(text) {

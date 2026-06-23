@@ -9,3 +9,5 @@ npm-debug.log*
 .env.*.local
 coverage/
 *.tsbuildinfo
+workers/wrangler.toml
+workers/.wrangler/

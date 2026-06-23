@@ -1,11 +1,17 @@
 # Changelog
 
+## 0.3.27 - Mimo online gate default
+
+- Switched the Cloudflare Online Gate template default provider to Mimo's OpenAI-compatible endpoint.
+- Defaulted the remote gate model to `mimo-v2.5` with `LLM_PROVIDER`, `LLM_BASE_URL`, and `LLM_MODEL` Worker vars.
+- Kept DeepSeek as a later switchable provider through Worker vars and `DEEPSEEK_API_KEY`.
+
 ## 0.3.26 - PM intent gate
 
 - Added a PM-style intent gate that classifies usage scope, maintenance mode, access topology, technical shape, and deployment direction before domain templates.
 - Added gate-specific handling for multi-user collaboration, content marketing sites, and xlsx/csv data visualization sites, including safer defaults and boundary questions.
 - Added an optional remote Online Gate client protocol with local-rule fallback, schema validation, prompt truncation, telemetry mode, and hard local corrections.
-- Added a Cloudflare Workers P0 Online Gate template with KV prompt cache, IP daily limit, D1 redacted sample storage, and DeepSeek JSON classification.
+- Added a Cloudflare Workers P0 Online Gate template with KV prompt cache, IP daily limit, D1 redacted sample storage, and an OpenAI-compatible JSON classification provider.
 - Carried `pmIntentDecision` through assist, compile, architecture, and acceptance structured outputs.
 - Added regression coverage for household tools, roommate task collaboration, gym GEO content sites, xlsx chart sites, and negative local/static/backend routing cases.
 

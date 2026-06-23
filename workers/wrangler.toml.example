@@ -2,18 +2,23 @@ name = "product-spec-pm-intent-gate"
 main = "pm-intent-gate.mjs"
 compatibility_date = "2026-06-23"
 
-kv_namespaces = [
-  { binding = "PROMPT_CACHE", id = "replace-with-kv-namespace-id" }
-]
+[[kv_namespaces]]
+binding = "PROMPT_CACHE"
+id = "replace-with-kv-namespace-id"
 
-d1_databases = [
-  { binding = "PROMPT_SAMPLES", database_name = "product-spec-prompt-samples", database_id = "replace-with-d1-database-id" }
-]
+[[d1_databases]]
+binding = "PROMPT_SAMPLES"
+database_name = "product-spec-prompt-samples"
+database_id = "replace-with-d1-database-id"
 
 [vars]
-DEEPSEEK_MODEL = "deepseek-chat"
+LLM_PROVIDER = "mimo"
+LLM_BASE_URL = "https://token-plan-cn.xiaomimimo.com/v1"
+LLM_MODEL = "mimo-v2.5"
 
 # Secrets to set with wrangler:
 # wrangler secret put GATE_TOKEN
+# wrangler secret put MIMO_API_KEY
+# Optional fallback/switch later:
 # wrangler secret put DEEPSEEK_API_KEY
 # wrangler secret put RATE_LIMIT_SALT
