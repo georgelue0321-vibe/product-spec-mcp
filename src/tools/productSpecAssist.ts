@@ -1,14 +1,14 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { ProductSpecAssistInputSchema } from "../schemas/productSpecAssist.schema.js";
 import { ProductSpecAssistOutputSchema } from "../schemas/outputs/productSpecAssist.output.js";
-import { executeAssist } from "../core/assistEngine.js";
+import { executeAssistWithRemoteGate } from "../core/assistEngine.js";
 import type { z } from "zod";
 
 type Input = z.infer<typeof ProductSpecAssistInputSchema>;
 
 export function registerProductSpecAssist(server: McpServer): void {
   const handler = async (input: Input) => {
-    const result = executeAssist(
+    const result = await executeAssistWithRemoteGate(
       input.message,
       input.known_context as Record<string, unknown> | undefined,
       input.preferred_platform,
@@ -25,6 +25,7 @@ export function registerProductSpecAssist(server: McpServer): void {
         result: result.result ?? null,
         nextAction: result.nextAction,
         technicalProfile: result.technicalProfile,
+        pmIntentDecision: result.pmIntentDecision,
         quickQuestions: result.quickQuestions,
         agentGuidance: result.agentGuidance,
       },

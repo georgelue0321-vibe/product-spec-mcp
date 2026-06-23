@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { TechnicalProfileSchema } from "../technicalProfile.schema.js";
+import { PmIntentDecisionSchema } from "../pmIntentDecision.schema.js";
 
 export const SpecCompileOutputSchema = z.object({
   mode: z.enum(["not_ready", "draft", "formal"]),
@@ -16,6 +17,7 @@ export const SpecCompileOutputSchema = z.object({
     })
     .optional(),
   technicalProfile: TechnicalProfileSchema.optional(),
+  pmIntentDecision: PmIntentDecisionSchema.optional(),
   spec: z
     .object({
       productGoal: z.string(),
@@ -30,6 +32,7 @@ export const SpecCompileOutputSchema = z.object({
       successCriteria: z.array(z.string()),
       assumptions: z.array(z.string()),
       technicalProfile: TechnicalProfileSchema.optional(),
+      pmIntentDecision: PmIntentDecisionSchema.optional(),
       inputConsumption: z
         .object({
           consumedAnswers: z.array(z.string()),

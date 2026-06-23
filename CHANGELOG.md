@@ -1,5 +1,44 @@
 # Changelog
 
+## 0.3.26 - PM intent gate
+
+- Added a PM-style intent gate that classifies usage scope, maintenance mode, access topology, technical shape, and deployment direction before domain templates.
+- Added gate-specific handling for multi-user collaboration, content marketing sites, and xlsx/csv data visualization sites, including safer defaults and boundary questions.
+- Added an optional remote Online Gate client protocol with local-rule fallback, schema validation, prompt truncation, telemetry mode, and hard local corrections.
+- Added a Cloudflare Workers P0 Online Gate template with KV prompt cache, IP daily limit, D1 redacted sample storage, and DeepSeek JSON classification.
+- Carried `pmIntentDecision` through assist, compile, architecture, and acceptance structured outputs.
+- Added regression coverage for household tools, roommate task collaboration, gym GEO content sites, xlsx chart sites, and negative local/static/backend routing cases.
+
+## 0.3.25 - Local MVP spec quality
+
+- Fed local tool signals into generic local-first spec generation so MVP drafts include concrete fields, data examples, and acceptance criteria.
+- Defaulted recognizable household/local record tools to Draft Ready with localStorage scope instead of showing contradictory Not Ready wording.
+- Kept the change horizontal: no new medicine domain pack, and backend/domain upgrades still require explicit signals.
+
+## 0.3.24 - Beginner MVP draft output
+
+- Changed generic local-first beginner requests to return an MVP spec draft from `product_spec_assist` instead of only an interrogation result.
+- Included architecture, data, API, non-goals, and acceptance sections in local-first draft markdown while keeping backend upgrades gated by explicit signals.
+- Added regression coverage so household medicine requests produce a lightweight localStorage MVP draft without registration/admin template pollution.
+
+## 0.3.23 - Visual polish is not backend scope
+
+- Clarified that "页面高级一点" affects UI direction and acceptance, not backend/login/database scope.
+- Added local beginner-tool guidance that advanced visual polish remains compatible with `localStorage`.
+- Added regression coverage to prevent agents from treating visual quality as a reason to override local-first architecture.
+
+## 0.3.22 - Beginner default flow guidance
+
+- Changed local beginner tool assist results to recommend `spec_compile` with defaults instead of blocking on all questions.
+- Added agent guidance to avoid asking users to answer raw quickQuestions or compact choices like `B + a`.
+- Kept quickQuestions available for structured consumers while encouraging one natural-language confirmation at most.
+
+## 0.3.21 - Local tool signal extraction
+
+- Added horizontal signal extraction for beginner local tools without adding new domain packs.
+- Contextualized local-first quick questions with inferred record object, fields, reminders, inventory, and visual requirements.
+- Improved generic local-tool specs and acceptance checks for short requests such as household medicine tracking.
+
 ## 0.3.20 - README cleanup
 
 - Moved maintainer notes out of the main README flow.

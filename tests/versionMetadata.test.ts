@@ -9,7 +9,7 @@ describe("version metadata", () => {
     ) as { version: string };
     const serverSource = readFileSync(resolve(__dirname, "../src/server.ts"), "utf8");
 
-    expect(packageJson.version).toBe("0.3.20");
+    expect(packageJson.version).toBe("0.3.26");
     expect(serverSource).toContain(`version: "${packageJson.version}"`);
   });
 });

@@ -54,6 +54,20 @@ npm start
 npm run dev
 ```
 
+## Optional Online PM Gate
+
+默认只使用本地 PM Gate。需要让低置信或冲突需求走在线 LLM 辅助归门时，可以配置独立 HTTP gate：
+
+```bash
+PRODUCT_SPEC_REMOTE_GATE_URL=https://gate.example.com/v1/pm-intent
+PRODUCT_SPEC_REMOTE_GATE_TOKEN=replace-with-token
+PRODUCT_SPEC_REMOTE_GATE_TIMEOUT_MS=2500
+PRODUCT_SPEC_REMOTE_GATE_MODE=auto
+PRODUCT_SPEC_TELEMETRY=off
+```
+
+`auto` 模式只在本地规则低置信、unknown 或冲突时调用远程。远程失败、限流、超时或 schema 错误时会自动降级到本地判断。Cloudflare Workers 部署模板随 npm 包一起发布，见 `docs/online-pm-gate.md`。
+
 ## MCP Client Configuration
 
 ### Claude Desktop

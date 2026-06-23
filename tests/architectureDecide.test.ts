@@ -322,6 +322,57 @@ describe("architectureDecide", () => {
     expect(markdown).not.toContain("导出接口");
   });
 
+  it("should route roommate collaboration to lightweight backend without default domain ops", () => {
+    const result = decideArchitecture(
+      "多人室友任务清单",
+      "web",
+      ["每天日程展示", "相互安排任务", "对方需要认领", "自己给自己安排直接可用"],
+      false,
+      "small_team"
+    );
+
+    expect(result.pmIntentDecision?.needType).toBe("multi_user_collaboration");
+    expect(result.needBackend).toBe(true);
+    expect(result.needAuth).toBe(true);
+    expect(result.needAdmin).toBe(false);
+    expect(result.recommendedDatabase).toContain("SQLite");
+    expect(result.mvpSuggestion).toContain("低价公网 VPS");
+    expect(result.productionSuggestion).toContain("域名");
+  });
+
+  it("should keep agent-assisted gym content sites frontend-only by default", () => {
+    const result = decideArchitecture(
+      "健身房 GEO 网站",
+      "web",
+      ["Q&A", "照片", "用户反馈", "促销活动", "教练信息", "不定期维护内容"],
+      false,
+      "individual"
+    );
+
+    expect(result.pmIntentDecision?.needType).toBe("content_marketing_site");
+    expect(result.pmIntentDecision?.maintenanceMode).toBe("agent_assisted");
+    expect(result.canBeFrontendOnly).toBe(true);
+    expect(result.needBackend).toBe(false);
+    expect(result.recommendedDatabase).toContain("无需服务器数据库");
+    expect(result.mvpSuggestion).toContain("Agent 更新内容");
+  });
+
+  it("should keep agent-assisted xlsx chart sites static by default", () => {
+    const result = decideArchitecture(
+      "图表网站",
+      "web",
+      ["每次提供新的 xlsx 文件", "根据新的数据渲染结果"],
+      false,
+      "individual"
+    );
+
+    expect(result.pmIntentDecision?.needType).toBe("data_visualization_site");
+    expect(result.pmIntentDecision?.maintenanceMode).toBe("agent_assisted");
+    expect(result.canBeFrontendOnly).toBe(true);
+    expect(result.needBackend).toBe(false);
+    expect(result.mvpSuggestion).toContain("Agent 解析 xlsx");
+  });
+
   it("should keep individual content community MVP lightweight and moderation-aware", () => {
     const result = decideArchitecture(
       "内容社区投稿审核系统",

@@ -97,15 +97,24 @@ ${formatInterrogateResult(readiness, clarification)}`;
   if (!spec) return "# 错误：无法生成规格";
 
   if (mode === "draft") {
-    let md = `# 产品规格草案
+    const localFirstDraft = spec.technicalProfile?.frontendOnly === true && spec.technicalProfile?.needsBackend === false;
+    let md = localFirstDraft
+      ? `# MVP 产品规格草案
+
+> 以下内容已按小白本地工具默认值生成，可作为 MVP 开工草案；如用户没有补充多人同步、登录、支付、AI Key 等强信号，不要升级到重后端架构。
+`
+      : `# 产品规格草案
 
 > ⚠️ **注意：** 以下内容基于默认假设生成，**不可直接用于开发**，需要用户确认。
+`;
+
+    md += `
 
 ## 需求完整度
 
 - **Score:** ${readiness.score} / 100
 - **状态:** ${readiness.status}
-- **是否可执行:** 否（需要用户确认假设）
+- **是否可执行:** ${localFirstDraft ? "MVP 草案可执行（默认假设需确认）" : "否（需要用户确认假设）"}
 
 ## 需求摘要
 
@@ -118,6 +127,20 @@ ${formatTechnicalProfileSection(spec.technicalProfile)}
 
 ${spec.coreFeatures.map((f) => `- ${f}`).join("\n")}
 
+## 架构建议
+
+${spec.architecture}
+
+## 数据方案
+
+${spec.dataModel}
+
+## API 设计
+
+\`\`\`
+${spec.apiDesign}
+\`\`\`
+
 ## 默认假设（需要用户确认）
 
 ${spec.assumptions.length > 0 ? spec.assumptions.map((a) => `- ⚠️ ${a}`).join("\n") : "- 无默认假设"}
@@ -126,9 +149,17 @@ ${spec.assumptions.length > 0 ? spec.assumptions.map((a) => `- ⚠️ ${a}`).joi
 
 ${spec.riskBoundaries.length > 0 ? spec.riskBoundaries.map((r) => `- ⚠️ ${r}`).join("\n") : "- 无特殊风险"}
 
+## 暂不包含
+
+${spec.nonGoals.map((g) => `- ${g}`).join("\n")}
+
+## 验收标准
+
+${spec.successCriteria.map((c) => `- ${c}`).join("\n")}
+
 ## 下一步
 
-请先补充上述缺失信息，或明确接受默认假设后再生成正式开发 Prompt。
+${localFirstDraft ? "确认默认假设后即可按该 MVP 草案实现；如果用户提出多人多设备同步、邮件通知、登录权限等，再重新评估技术形态。" : "请先补充上述缺失信息，或明确接受默认假设后再生成正式开发 Prompt。"}
 
 `;
 

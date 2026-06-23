@@ -1,6 +1,8 @@
 import acceptanceRules from "../rules/acceptanceRules.json";
 import { classifyProductDomain, hasNegatedAi } from "./domainClassifier.js";
 import { isSingleUserCrmContext } from "./contextSignals.js";
+import { buildLocalToolSignalProfile } from "./localToolSignals.js";
+import { decidePmIntent, type PmIntentDecision } from "./pmIntentGate.js";
 import { buildTechnicalProfile, isLocalFirstProfile, type TechnicalProfile } from "./technicalProfile.js";
 
 export interface AcceptanceResult {
@@ -12,6 +14,7 @@ export interface AcceptanceResult {
   }>;
   definitionOfDone: string[];
   technicalProfile?: TechnicalProfile;
+  pmIntentDecision?: PmIntentDecision;
 }
 
 export function generateAcceptance(
@@ -28,16 +31,41 @@ export function generateAcceptance(
     has_auth: hasAuth,
   });
   const featureText = buildFeatureText(productType, features);
+  const pmIntentDecision = decidePmIntent(featureText, {
+    has_backend: hasBackend,
+    has_payment: hasPayment,
+    has_auth: hasAuth,
+  });
   const domain = classifyProductDomain(productType, { features }).domain;
   const inferredBackend = hasBackend || technicalProfile.needsBackend;
   const inferredAuth = hasAuth || technicalProfile.needsAuth;
   const inferredPayment = hasPayment || technicalProfile.blockers.some((blocker) => blocker.includes("支付"));
+
+  if (
+    domain === "generic" &&
+    ["multi_user_collaboration", "content_marketing_site", "data_visualization_site"].includes(pmIntentDecision.needType)
+  ) {
+    return {
+      productType,
+      platform,
+      technicalProfile,
+      pmIntentDecision,
+      categories: buildPmGateAcceptanceCategories(pmIntentDecision),
+      definitionOfDone: [
+        "核心边界已按 PM Gate 确认",
+        "桌面端和移动端验收通过",
+        "控制台无明显报错",
+        "无 P0/P1 Bug",
+      ],
+    };
+  }
 
   if (isStaticDisplaySite(productType, features, platform, inferredBackend, inferredPayment, inferredAuth)) {
     return {
       productType,
       platform,
       technicalProfile,
+      pmIntentDecision,
       categories: buildStaticDisplayAcceptanceCategories(),
       definitionOfDone: [
         "所有占位内容已替换为真实内容",
@@ -71,6 +99,7 @@ export function generateAcceptance(
       productType,
       platform,
       technicalProfile,
+      pmIntentDecision,
       categories: buildLocalFirstAcceptanceCategories(technicalProfile, productType, features),
       definitionOfDone: [
         "核心功能按需求实现",
@@ -486,9 +515,91 @@ export function generateAcceptance(
     productType,
     platform,
     technicalProfile,
+    pmIntentDecision,
     categories,
     definitionOfDone: [...acceptanceRules.definition_of_done],
   };
+}
+
+function buildPmGateAcceptanceCategories(
+  decision: PmIntentDecision
+): Array<{ category: string; items: string[] }> {
+  if (decision.needType === "multi_user_collaboration") {
+    return [
+      {
+        category: "多人协作流程验收",
+        items: [
+          "自己给自己安排的任务保存后立即进入自己的日程",
+          "给室友或成员安排的任务先进入待认领状态，不能直接变成对方已确认日程",
+          "对方认领任务后，任务进入对方日程并保留认领时间",
+          "任务完成、取消或重新分配后，所有成员刷新页面看到一致状态",
+        ],
+      },
+      {
+        category: "日程与访问边界验收",
+        items: [
+          "同一时间段的任务按已确认规则并排展示、高亮冲突或阻止安排",
+          "访问方式必须在局域网、本机公网 IP 或域名 HTTPS 中明确一种",
+          "多人运行时协作数据不得分别保存在各自浏览器 localStorage 里",
+          "SQLite 数据文件或等价持久化文件重启服务后仍能恢复任务和成员数据",
+        ],
+      },
+    ];
+  }
+
+  if (decision.needType === "content_marketing_site") {
+    return [
+      {
+        category: "内容营销站验收",
+        items: [
+          "FAQ、照片、促销活动、教练或团队信息能从内容文件渲染到页面",
+          "Agent 更新内容文件并重新部署后，线上页面展示最新内容",
+          "页面包含面向本地曝光的标题、描述、结构化 FAQ 和 sitemap 基础信息",
+          "移动端首屏、图片列表、活动信息和联系方式均正常展示",
+        ],
+      },
+      {
+        category: "维护边界验收",
+        items: [
+          "内容经常修改时默认按 Agent-assisted 内容文件维护，不强制生成 CMS 后台",
+          "只有用户明确要求网页编辑、图片上传、多人维护或访客提交时才引入后端",
+          "访客反馈或预约提交如果进入 MVP，必须有后端保存、审核或防垃圾策略",
+        ],
+      },
+    ];
+  }
+
+  if (decision.needType === "data_visualization_site") {
+    return [
+      {
+        category: "数据图表站验收",
+        items: [
+          "Agent 能从新 xlsx 或 CSV 生成页面读取的图表数据文件",
+          "页面读取最新数据文件后，图表、指标卡和表格结果一致",
+          "替换数据并重新部署后，线上页面展示最新结果",
+          "数据为空、字段缺失或格式错误时页面有明确提示，不显示旧结果",
+        ],
+      },
+      {
+        category: "数据更新边界验收",
+        items: [
+          "默认不要求后台上传、数据库或登录权限",
+          "只有用户明确要求网页上传、多人上传、历史版本或权限控制时才升级后端",
+          "如果公开展示，部署地址和数据脱敏边界必须明确",
+        ],
+      },
+    ];
+  }
+
+  return [
+    {
+      category: "PM Gate 验收",
+      items: [
+        "使用者、维护方式和访问方式已确认",
+        "MVP 技术方案没有超出已确认边界",
+      ],
+    },
+  ];
 }
 
 function hasFeatureSignal(productType: string, features: string[], signals: string[]): boolean {
@@ -673,7 +784,7 @@ function buildLocalFirstAcceptanceCategories(
 
 function buildGenericToolAcceptanceItems(productType: string, features: string[]): string[] {
   const text = buildFeatureText(productType, features);
-  const items: string[] = [];
+  const items: string[] = [...buildLocalToolSignalProfile(text).acceptanceItems];
 
   if (/地图|景点|酒店|美食|点位|坐标|路线/.test(text)) {
     items.push("地图 provider、坐标来源和 API Key 使用方式已明确；Key 不应硬编码到公开仓库");

@@ -450,6 +450,36 @@ describe("specCompile", () => {
     expect(spec.apiDesign).toContain("无需 API");
   });
 
+  it("should extract local record, reminder and visual signals without a domain pack", () => {
+    const rawIdea = "用户想做一个家庭药品管理工具，功能需求是：记录家里有哪些药、快过期提醒、页面高级一点。";
+    const readiness = calculateReadiness(rawIdea, {});
+    const spec = buildSpec(rawIdea, {}, readiness);
+    const combined = `${spec.coreFeatures.join("\n")}\n${spec.dataModel}\n${spec.apiDesign}\n${spec.architecture}\n${spec.successCriteria.join("\n")}\n${JSON.stringify(spec.technicalProfile ?? {})}`;
+
+    expect(spec.inputConsumption?.matchedDomain).toBe("generic");
+    expect(spec.readinessStatus).toBe("Draft Ready");
+    expect(spec.targetUser).toBe("家庭自用用户");
+    expect(spec.technicalProfile?.shape).toBe("local_storage_tool");
+    expect(spec.technicalProfile?.frontendOnly).toBe(true);
+    expect(spec.coreFeatures).toContain("药品记录管理");
+    expect(spec.coreFeatures).toContain("新增/编辑/删除");
+    expect(spec.coreFeatures).toContain("搜索/筛选/分类");
+    expect(spec.coreFeatures).not.toContain("管理");
+    expect(spec.coreFeatures).toContain("到期/过期提醒");
+    expect(spec.coreFeatures).toContain("高级界面与响应式布局");
+    expect(spec.dataModel).toContain("字段建议：药品名、数量/库存、有效期/到期日、分类、存放位置、备注");
+    expect(spec.dataModel).toContain("\"quantity\":1");
+    expect(spec.dataModel).toContain("\"expireDate\":\"2026-12-31\"");
+    expect(combined).toContain("localStorage");
+    expect(combined).toContain("无需 API");
+    expect(combined).toContain("刷新页面后，已保存记录仍能从 localStorage 恢复");
+    expect(combined).toContain("提醒列表能按日期排序");
+    expect(combined).not.toContain("核心功能可用");
+    expect(combined).not.toContain("无明显 Bug");
+    expect(combined).not.toContain("PostgreSQL");
+    expect(combined).not.toContain("RBAC");
+  });
+
   it("should compile travel guide map pages as static data without REST APIs", () => {
     const rawIdea = "旅行攻略 HTML，用 data.json 加载美食、酒店、景点，并在地图上展示点位。";
     const answers = {
@@ -472,6 +502,49 @@ describe("specCompile", () => {
     expect(combined).not.toContain("POST /api");
     expect(combined).not.toContain("admin_users");
     expect(combined).not.toContain("PostgreSQL");
+  });
+
+  it("should compile roommate task collaboration through PM gate", () => {
+    const rawIdea = "我想做个多人使用的任务清单，我和我的室友的日程会在每一天具体的展示出来，哪些在同一个时间，哪些在不同时间，可以相互安排任务，对方需要认领，自己给自己安排的任务直接可用。";
+    const readiness = calculateReadiness(rawIdea, {});
+    const spec = buildSpec(rawIdea, {}, readiness);
+    const combined = `${spec.coreFeatures.join("\n")}\n${spec.dataModel}\n${spec.apiDesign}\n${spec.successCriteria.join("\n")}`;
+
+    expect(spec.pmIntentDecision?.needType).toBe("multi_user_collaboration");
+    expect(spec.pmIntentDecision?.technicalShape).toBe("light_backend_json_sqlite");
+    expect(combined).toContain("待认领");
+    expect(combined).toContain("POST /api/tasks/:id/claim");
+    expect(combined).toContain("同一时间任务");
+    expect(combined).not.toContain("联系方式怎么呈现");
+  });
+
+  it("should compile gym GEO content sites as agent-assisted static content", () => {
+    const rawIdea = "我打算做个我健身房的网站，配合 GEO 服务，我会传很多我的 Q&A 上去，还有健身房的照片，用户的反馈，近期的促销活动，我的教练的信息等等上去，我会不定期的去维护上面的内容";
+    const readiness = calculateReadiness(rawIdea, {});
+    const spec = buildSpec(rawIdea, {}, readiness);
+    const combined = `${spec.coreFeatures.join("\n")}\n${spec.dataModel}\n${spec.architecture}\n${spec.riskBoundaries.join("\n")}\n${spec.nonGoals.join("\n")}`;
+
+    expect(spec.pmIntentDecision?.needType).toBe("content_marketing_site");
+    expect(spec.pmIntentDecision?.maintenanceMode).toBe("agent_assisted");
+    expect(combined).toContain("Agent 更新内容文件并重新部署");
+    expect(combined).toContain("FAQ");
+    expect(combined).toContain("促销");
+    expect(combined).toContain("暂不默认做 CMS 后台");
+    expect(combined).not.toContain("admin_users");
+  });
+
+  it("should compile xlsx chart sites as agent-assisted static visualization", () => {
+    const rawIdea = "我想做个图表网站，每次我提供新的 xlsx 的文件，这个网站就根据新的数据渲染出结果";
+    const readiness = calculateReadiness(rawIdea, {});
+    const spec = buildSpec(rawIdea, {}, readiness);
+    const combined = `${spec.coreFeatures.join("\n")}\n${spec.dataModel}\n${spec.architecture}\n${spec.successCriteria.join("\n")}`;
+
+    expect(spec.pmIntentDecision?.needType).toBe("data_visualization_site");
+    expect(spec.pmIntentDecision?.maintenanceMode).toBe("agent_assisted");
+    expect(combined).toContain("Agent 从 xlsx 解析");
+    expect(combined).toContain("静态数据图表站");
+    expect(combined).toContain("不默认后台或数据库");
+    expect(combined).not.toContain("admin_users");
   });
 
   it("should not extract negated login or backend as generic features", () => {

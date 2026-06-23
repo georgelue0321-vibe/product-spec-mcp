@@ -3,6 +3,10 @@ import { calculateReadiness } from "./specReadiness.js";
 import { generateClarification } from "./clarificationEngine.js";
 import { formatInterrogateResult } from "./markdownFormatter.js";
 import { buildInterrogateStructuredOutput } from "./structuredResultBuilder.js";
+import { buildSpec } from "./promptBuilder.js";
+import { buildConfirmation } from "./confirmationBuilder.js";
+import { formatCompileResult } from "./markdownFormatter.js";
+import { buildCompileStructuredOutput } from "./structuredResultBuilder.js";
 import { translateUiDescription } from "./uiPromptEngine.js";
 import { formatUiTranslateResult } from "./markdownFormatter.js";
 import { buildUiTranslateStructuredOutput } from "./structuredResultBuilder.js";
@@ -14,8 +18,12 @@ import { formatArchitectureResult } from "./markdownFormatter.js";
 import { buildArchitectureStructuredOutput } from "./structuredResultBuilder.js";
 import { classifyProductDomain } from "./domainClassifier.js";
 import { isPersonalLocalFrontendToolContext } from "./contextSignals.js";
+import { buildLocalToolSignalProfile } from "./localToolSignals.js";
 import { buildTechnicalProfile, isLocalFirstProfile, type TechnicalProfile } from "./technicalProfile.js";
+import { decidePmIntent, type PmIntentDecision } from "./pmIntentGate.js";
+import { callRemotePmIntentGate } from "./remotePmIntentGate.js";
 import type { SpecInterrogateOutput } from "../schemas/outputs/specInterrogate.output.js";
+import type { SpecCompileOutput } from "../schemas/outputs/specCompile.output.js";
 import type { UiTranslateOutput } from "../schemas/outputs/uiTranslate.output.js";
 import type { DebugGuideOutput } from "../schemas/outputs/debugGuide.output.js";
 import type { ArchitectureDecideOutput } from "../schemas/outputs/architectureDecide.output.js";
@@ -44,11 +52,12 @@ export interface AssistResult {
   };
   selectedTool: string | null;
   executed: boolean;
-  result?: SpecInterrogateOutput | UiTranslateOutput | DebugGuideOutput | ArchitectureDecideOutput | null;
+  result?: SpecInterrogateOutput | SpecCompileOutput | UiTranslateOutput | DebugGuideOutput | ArchitectureDecideOutput | null;
   nextAction: {
     type:
       | "answer_questions"
       | "compile_spec"
+      | "confirm_spec"
       | "translate_ui"
       | "provide_debug_info"
       | "review_launch_readiness"
@@ -57,6 +66,7 @@ export interface AssistResult {
     suggestedTool?: string;
   };
   technicalProfile?: TechnicalProfile;
+  pmIntentDecision?: PmIntentDecision;
   quickQuestions: QuickQuestion[];
   agentGuidance: string[];
   markdown: string;
@@ -90,6 +100,46 @@ export function executeAssist(
   }
 }
 
+export async function executeAssistWithRemoteGate(
+  message: string,
+  knownContext?: Record<string, unknown>,
+  preferredPlatform: string = "unknown",
+  strictness: string = "normal",
+  autoExecute: boolean = true
+): Promise<AssistResult> {
+  const result = executeAssist(message, knownContext, preferredPlatform, strictness, autoExecute);
+  if (result.routedIntent.scenario !== "build_product" || !result.pmIntentDecision) return result;
+
+  const remote = await callRemotePmIntentGate(message, knownContext || {}, result.pmIntentDecision);
+  if (!remote) return result;
+  const merged = remote.decision;
+
+  if (
+    merged.needType !== result.pmIntentDecision.needType &&
+    ["multi_user_collaboration", "content_marketing_site", "data_visualization_site"].includes(merged.needType)
+  ) {
+    const technicalProfile = buildTechnicalProfile(message, knownContext || {});
+    const questions =
+      merged.needType === "multi_user_collaboration"
+        ? buildMultiUserCollaborationQuickQuestions()
+        : merged.needType === "content_marketing_site"
+        ? buildContentMarketingQuickQuestions()
+        : buildDataVisualizationQuickQuestions();
+    return appendRemoteGateMeta(
+      buildPmGateInterrogateResult(
+        message,
+        result.routedIntent as { intent: string; scenario: "build_product"; confidence: number },
+        technicalProfile,
+        merged,
+        questions
+      ),
+      remote.meta.fallbackReason
+    );
+  }
+
+  return appendRemoteGateMeta({ ...result, pmIntentDecision: merged }, remote.meta.fallbackReason);
+}
+
 function detectPlatform(message: string, preferred: string): string {
   if (preferred !== "unknown") return preferred;
   if (message.includes("小程序")) return "mini_program";
@@ -106,8 +156,21 @@ function handleBuildProduct(
   routed: { intent: string; scenario: "build_product"; confidence: number }
 ): AssistResult {
   const technicalProfile = buildTechnicalProfile(message, knownContext || {});
-  if (isStaticDisplaySite(message)) {
-    return handleStaticDisplaySite(message, autoExecute, routed);
+  const pmIntentDecision = decidePmIntent(message, knownContext || {});
+  if (pmIntentDecision.needType === "static_display" && isStaticDisplaySite(message)) {
+    return withPmDecision(handleStaticDisplaySite(message, autoExecute, routed), pmIntentDecision);
+  }
+
+  if (pmIntentDecision.needType === "multi_user_collaboration") {
+    return buildPmGateInterrogateResult(message, routed, technicalProfile, pmIntentDecision, buildMultiUserCollaborationQuickQuestions());
+  }
+
+  if (pmIntentDecision.needType === "content_marketing_site") {
+    return buildPmGateInterrogateResult(message, routed, technicalProfile, pmIntentDecision, buildContentMarketingQuickQuestions());
+  }
+
+  if (pmIntentDecision.needType === "data_visualization_site") {
+    return buildPmGateInterrogateResult(message, routed, technicalProfile, pmIntentDecision, buildDataVisualizationQuickQuestions());
   }
 
   if (!autoExecute) {
@@ -122,6 +185,7 @@ function handleBuildProduct(
         suggestedTool: "spec_interrogate",
       },
       technicalProfile,
+      pmIntentDecision,
       quickQuestions,
       agentGuidance: [
         "只展示 quickQuestions 中的选项，不要自行合并或删改问题。",
@@ -148,9 +212,53 @@ function handleBuildProduct(
   const structured = buildInterrogateStructuredOutput(readiness, clarification, technicalProfile);
   const domainClassification = classifyProductDomain(message, knownContext || {});
   const quickQuestions = buildProductQuickQuestions(message, knownContext);
+  const localFirstGeneric = domainClassification.domain === "generic" && isLocalFirstProfile(technicalProfile);
   const domainPackWarning = domainClassification.domain === "generic"
     ? "\n\n> ⚠️ 当前只识别为产品开发意图，但未命中稳定 domain pack。后续 `spec_compile` 应作为草案处理，不要静默套用报名、电商、预约、内容社区、工单、知识库或 CRM 模板。"
     : "";
+  const localFirstDefaultNote = localFirstGeneric
+    ? `\n\n## 小白默认路径\n\n这是个人本地小工具。不要要求用户逐项回答全部 quickQuestions；可以先采用推荐默认值进入 \`spec_compile\`，生成 Draft 规格。\n\n“页面高级一点”只影响 UI 风格、布局和验收标准，不是后端、登录、多端同步或服务器数据库信号；高级页面可以仍然使用 localStorage。\n\n如需确认，只问一句自然语言问题：是否按“浏览器本地保存、不登录不做后台、支持新增编辑删除和搜索筛选、提醒在页面内用状态和列表展示”继续？`
+    : "";
+
+  if (localFirstGeneric) {
+    const spec = buildSpec(message, knownContext || {}, readiness);
+    const effectiveReadiness = {
+      ...readiness,
+      score: spec.readinessScore,
+      status: spec.readinessStatus as typeof readiness.status,
+    };
+    const confirmation = buildConfirmation(spec);
+    const compileMarkdown = formatCompileResult("draft", effectiveReadiness, undefined, spec, confirmation);
+    const compileStructured = buildCompileStructuredOutput("draft", effectiveReadiness, spec, confirmation);
+
+    return {
+      routedIntent: routed,
+      selectedTool: "spec_compile",
+      executed: true,
+      result: compileStructured,
+      nextAction: {
+        type: "confirm_spec",
+        message: "已按本地小工具默认值生成 MVP 草案；请确认默认假设即可，不要让小白用户逐项填写结构化问题。",
+        suggestedTool: "spec_compile",
+      },
+      technicalProfile,
+      pmIntentDecision,
+      quickQuestions,
+      agentGuidance: [
+        "面向小白本地工具时，不要把 quickQuestions 原样抛给用户，也不要要求用户回答类似“B + a”的结构化选项；已生成 MVP 草案，最多问一句自然语言确认。页面高级感只影响 UI，不要因此纠偏成后端、登录、多端同步或服务器数据库。",
+        "不要把用户端登录和后台管理员登录合并成同一个字段。",
+        "如果用户只需要导出，不要擅自扩展成完整后台管理系统。",
+        "未命中稳定 domain pack 时，应使用 generic MVP 草案，不要套用报名、电商、预约、内容社区、工单、知识库或 CRM 模板。",
+      ],
+      markdown: `# 识别到场景：产品开发
+
+**置信度：** ${Math.round(routed.confidence * 100)}%
+${domainPackWarning}
+${localFirstDefaultNote}
+
+${compileMarkdown}`,
+    };
+  }
 
   return {
     routedIntent: routed,
@@ -158,14 +266,18 @@ function handleBuildProduct(
     executed: true,
     result: structured,
     nextAction: {
-      type: structured.recommendation.canProceed ? "compile_spec" : "answer_questions",
-      message: structured.recommendation.reason,
-      suggestedTool: structured.recommendation.suggestedNextTool,
+      type: structured.recommendation.canProceed || localFirstGeneric ? "compile_spec" : "answer_questions",
+      message: localFirstGeneric
+        ? "本地小工具可先用推荐默认值生成 Draft 规格；不要要求小白用户逐项填写结构化答案。"
+        : structured.recommendation.reason,
+      suggestedTool: localFirstGeneric ? "spec_compile" : structured.recommendation.suggestedNextTool,
     },
     technicalProfile,
     quickQuestions,
     agentGuidance: [
-      "优先直接展示 quickQuestions，避免二次改写导致选项语义变化。",
+      localFirstGeneric
+        ? "面向小白本地工具时，不要把 quickQuestions 原样抛给用户，也不要要求用户回答类似“B + a”的结构化选项；用推荐默认值继续 spec_compile，最多问一句自然语言确认。页面高级感只影响 UI，不要因此纠偏成后端、登录、多端同步或服务器数据库。"
+        : "优先直接展示 quickQuestions，避免二次改写导致选项语义变化。",
       "不要把用户端登录和后台管理员登录合并成同一个字段。",
       "如果用户只需要导出，不要擅自扩展成完整后台管理系统。",
       ...(domainClassification.domain === "generic"
@@ -176,13 +288,100 @@ function handleBuildProduct(
 
 **置信度：** ${Math.round(routed.confidence * 100)}%
 ${domainPackWarning}
+${localFirstDefaultNote}
 
 ## 快速确认问题
 
 ${formatQuickQuestions(quickQuestions)}
 
 ${markdown}`,
+    pmIntentDecision,
   };
+}
+
+function withPmDecision(result: AssistResult, pmIntentDecision: PmIntentDecision): AssistResult {
+  return { ...result, pmIntentDecision };
+}
+
+function appendRemoteGateMeta(result: AssistResult, fallbackReason?: string): AssistResult {
+  if (!fallbackReason) return result;
+  return {
+    ...result,
+    agentGuidance: [
+      ...result.agentGuidance,
+      `远程 PM Gate 未使用或已降级：${fallbackReason}。当前结果来自本地规则。`,
+    ],
+  };
+}
+
+function buildPmGateInterrogateResult(
+  message: string,
+  routed: { intent: string; scenario: "build_product"; confidence: number },
+  technicalProfile: TechnicalProfile,
+  pmIntentDecision: PmIntentDecision,
+  quickQuestions: QuickQuestion[]
+): AssistResult {
+  const title = formatNeedTypeTitle(pmIntentDecision.needType);
+  return {
+    routedIntent: routed,
+    selectedTool: "spec_interrogate",
+    executed: true,
+    nextAction: {
+      type: "answer_questions",
+      message: "已识别需求门，请先确认会改变架构和边界的关键问题。",
+      suggestedTool: "spec_compile",
+    },
+    technicalProfile,
+    pmIntentDecision,
+    quickQuestions,
+    agentGuidance: [
+      `PM Gate 已判定为 ${pmIntentDecision.needType}，不要套用无关 domain 模板。`,
+      "优先确认使用范围、维护方式和访问方式，再谈具体技术栈。",
+      ...pmIntentDecision.mustNotUse.map((item) => `禁止默认使用：${item}`),
+    ],
+    markdown: `# 识别到场景：${title}
+
+**置信度：** ${pmIntentDecision.confidence}
+
+## PM Gate 判断
+
+- **需求门:** ${pmIntentDecision.needType}
+- **使用范围:** ${pmIntentDecision.usageScope}
+- **维护方式:** ${pmIntentDecision.maintenanceMode}
+- **访问方式:** ${pmIntentDecision.accessTopology}
+- **技术形态:** ${pmIntentDecision.technicalShape}
+- **推荐部署:** ${pmIntentDecision.recommendedDeployment}
+- **强信号:** ${pmIntentDecision.strongSignals.join("、") || "无"}
+- **弱信号:** ${pmIntentDecision.weakSignals.join("、") || "无"}
+- **不要默认使用:** ${pmIntentDecision.mustNotUse.join("、") || "无"}
+
+## 默认理解
+
+${pmIntentDecision.defaultAssumptions.map((item) => `- ${item}`).join("\n")}
+
+## 快速确认问题
+
+${formatQuickQuestions(quickQuestions)}
+
+## 下一步
+
+请先确认以上边界，再调用 \`spec_compile\` 固化 MVP 规格。`,
+  };
+}
+
+function formatNeedTypeTitle(needType: PmIntentDecision["needType"]): string {
+  const titles: Record<PmIntentDecision["needType"], string> = {
+    static_display: "静态展示网站",
+    personal_local_tool: "个人本地工具",
+    multi_user_collaboration: "多人协作工具",
+    content_marketing_site: "内容营销网站",
+    data_visualization_site: "数据图表网站",
+    transaction_workflow: "交易/履约流程",
+    content_knowledge: "内容/知识管理",
+    ai_automation: "AI 自动化产品",
+    unknown: "产品开发",
+  };
+  return titles[needType];
 }
 
 function handleStaticDisplaySite(
@@ -450,7 +649,7 @@ function buildProductQuickQuestions(message: string, knownContext?: Record<strin
   const technicalProfile = buildTechnicalProfile(message, knownContext || {});
 
   if (domain === "generic" && isLocalFirstProfile(technicalProfile)) {
-    return withQuestionExamples(buildLocalFirstQuickQuestions(technicalProfile));
+    return withQuestionExamples(buildLocalFirstQuickQuestions(technicalProfile, message));
   }
 
   if (domain === "crm") {
@@ -705,18 +904,23 @@ function buildProductQuickQuestions(message: string, knownContext?: Record<strin
   ]);
 }
 
-function buildLocalFirstQuickQuestions(technicalProfile: TechnicalProfile): QuickQuestion[] {
+function buildLocalFirstQuickQuestions(technicalProfile: TechnicalProfile, message = ""): QuickQuestion[] {
   const storageDefault = technicalProfile.shape === "static_json_data_page"
     ? "static_json"
     : technicalProfile.shape === "local_json_import_export"
     ? "local_file"
     : "local_storage";
+  const signalProfile = buildLocalToolSignalProfile(message);
+  const recordObject = signalProfile.recordObject;
+  const fieldExample = signalProfile.fieldExample;
 
   const questions: QuickQuestion[] = [
     {
       id: "record_object",
-      question: "你想记录或展示什么东西？",
-      example: "比如食材、药品、游戏、装备、保单，或景点、酒店、美食。",
+      question: `你想记录或展示什么东西？`,
+      example: recordObject === "记录"
+        ? "比如食材、药品、游戏、装备、保单，或景点、酒店、美食。"
+        : `比如先围绕“${recordObject}”做个人记录/清单。`,
       whyImportant: "先确认核心对象，避免被扩成后台系统。",
       priority: "P0",
       defaultValue: "personal_records",
@@ -729,8 +933,8 @@ function buildLocalFirstQuickQuestions(technicalProfile: TechnicalProfile): Quic
     },
     {
       id: "record_items",
-      question: "每条记录要保存哪些信息？",
-      example: "比如名称、数量、日期、状态、分类、备注。",
+      question: `每条${recordObject === "记录" ? "记录" : recordObject}记录要保存哪些信息？`,
+      example: `比如${fieldExample}。`,
       whyImportant: "决定页面表单、列表列名和本地 JSON 数据结构。",
       priority: "P0",
       defaultValue: "name_date_status_note",
@@ -758,7 +962,9 @@ function buildLocalFirstQuickQuestions(technicalProfile: TechnicalProfile): Quic
     {
       id: "operations",
       question: "需要哪些操作？",
-      example: "比如新增、编辑、删除、搜索、筛选、分类。",
+      example: signalProfile.featureHints.length > 0
+        ? `比如${signalProfile.featureHints.join("、")}。`
+        : "比如新增、编辑、删除、搜索、筛选、分类。",
       whyImportant: "决定第一版功能范围和验收标准。",
       priority: "P0",
       defaultValue: "crud_search_filter",
@@ -817,6 +1023,164 @@ function buildLocalFirstQuickQuestions(technicalProfile: TechnicalProfile): Quic
   }
 
   return questions;
+}
+
+function buildMultiUserCollaborationQuickQuestions(): QuickQuestion[] {
+  return withQuestionExamples([
+    {
+      id: "access_topology",
+      question: "你们只需要在同一个 Wi-Fi/局域网里使用，还是外出时也要访问？",
+      whyImportant: "决定是局域网小服务，还是需要公网服务器、域名和 HTTPS。",
+      priority: "P0",
+      defaultValue: "ask_first",
+      mapsTo: ["access_topology", "deployment"],
+      options: [
+        { label: "先确认局域网是否足够", value: "ask_first", recommended: true },
+        { label: "只在同一 Wi-Fi/局域网使用", value: "lan_only" },
+        { label: "外出也要能访问", value: "internet_ip" },
+      ],
+    },
+    {
+      id: "public_ip_acceptance",
+      question: "如果外出也要访问，能否接受第一版用几十元/年的公网服务器和 IP 地址访问？",
+      whyImportant: "决定 MVP 是否先跳过域名、备案和完整 HTTPS 运维。",
+      priority: "P0",
+      defaultValue: "cheap_vps_ip_ok",
+      mapsTo: ["deployment", "non_goals"],
+      options: [
+        { label: "可以，先用公网 IP 跑通", value: "cheap_vps_ip_ok", recommended: true },
+        { label: "必须有域名和 HTTPS", value: "domain_https" },
+        { label: "先只做局域网版", value: "lan_first" },
+      ],
+    },
+    {
+      id: "claim_rule",
+      question: "给别人安排任务时，是否必须对方认领后才进入对方日程？",
+      whyImportant: "决定任务状态机和权限边界。",
+      priority: "P0",
+      defaultValue: "claim_required",
+      mapsTo: ["workflow", "task_status"],
+      options: [
+        { label: "必须认领后才生效", value: "claim_required", recommended: true },
+        { label: "直接进入对方日程但标记待确认", value: "pending_confirm" },
+        { label: "创建者可以直接安排", value: "direct_assign" },
+      ],
+    },
+    {
+      id: "time_conflict_rule",
+      question: "同一时间有多个任务时，应该并排展示/高亮冲突，还是阻止安排？",
+      whyImportant: "决定日程视图和冲突规则。",
+      priority: "P0",
+      defaultValue: "show_conflict",
+      mapsTo: ["workflow", "success_criteria"],
+      options: [
+        { label: "允许并排展示并高亮冲突", value: "show_conflict", recommended: true },
+        { label: "阻止安排冲突任务", value: "block_conflict" },
+        { label: "只提示不阻止", value: "warn_only" },
+      ],
+    },
+  ]);
+}
+
+function buildContentMarketingQuickQuestions(): QuickQuestion[] {
+  return withQuestionExamples([
+    {
+      id: "maintenance_mode",
+      question: "后续维护内容时，是继续让 Agent 帮你改和发布，还是需要网页后台自己编辑？",
+      whyImportant: "内容经常改不等于必须做后台，维护方式决定架构复杂度。",
+      priority: "P0",
+      defaultValue: "agent_assisted",
+      mapsTo: ["maintenance_mode", "backend_need"],
+      options: [
+        { label: "继续让 Agent 帮我更新和发布", value: "agent_assisted", recommended: true },
+        { label: "我能接受改 data.json/markdown 文件", value: "manual_files" },
+        { label: "我要网页后台上传图片和编辑内容", value: "web_admin" },
+      ],
+    },
+    {
+      id: "geo_goal",
+      question: "你说的 GEO 服务主要是 AI/生成式搜索可见性，还是地图/附近门店曝光？",
+      whyImportant: "决定 FAQ、结构化数据、门店信息、地图和 sitemap 的优先级。",
+      priority: "P0",
+      defaultValue: "geo_seo_content",
+      mapsTo: ["seo_geo", "content_sections"],
+      options: [
+        { label: "AI/生成式搜索和 SEO 可见性", value: "geo_seo_content", recommended: true },
+        { label: "地图定位/附近门店曝光", value: "map_local_discovery" },
+        { label: "两者都要", value: "both" },
+      ],
+    },
+    {
+      id: "visitor_submission",
+      question: "用户反馈是你手动整理后展示，还是访客可以在线提交？",
+      whyImportant: "访客提交会触发后端、审核和防垃圾内容。",
+      priority: "P0",
+      defaultValue: "owner_curated",
+      mapsTo: ["maintenance_mode", "risk_boundaries"],
+      options: [
+        { label: "我手动整理后展示", value: "owner_curated", recommended: true },
+        { label: "访客可以在线提交", value: "visitor_submission" },
+        { label: "先展示固定案例", value: "static_examples" },
+      ],
+    },
+    {
+      id: "image_volume",
+      question: "照片是少量精选图，还是会经常上传很多图？",
+      whyImportant: "决定图片压缩、分类、封面和资源管理方式。",
+      priority: "P1",
+      defaultValue: "curated_gallery",
+      mapsTo: ["content_sections", "asset_strategy"],
+      options: [
+        { label: "少量精选图", value: "curated_gallery", recommended: true },
+        { label: "经常上传很多图", value: "large_gallery" },
+        { label: "先不做图库", value: "no_gallery_first" },
+      ],
+    },
+  ]);
+}
+
+function buildDataVisualizationQuickQuestions(): QuickQuestion[] {
+  return withQuestionExamples([
+    {
+      id: "data_update_mode",
+      question: "新的 xlsx 是交给 Agent 更新网站，还是网站里要有上传按钮？",
+      whyImportant: "决定是否需要后台上传接口和服务器解析。",
+      priority: "P0",
+      defaultValue: "agent_assisted",
+      mapsTo: ["maintenance_mode", "data_flow"],
+      options: [
+        { label: "交给 Agent 解析并更新网站", value: "agent_assisted", recommended: true },
+        { label: "网页里上传，但只在浏览器本地渲染", value: "browser_upload" },
+        { label: "网页上传后所有访客看到最新数据", value: "server_upload" },
+      ],
+    },
+    {
+      id: "audience_scope",
+      question: "图表是只给你自己看，还是公开给别人看？",
+      whyImportant: "决定访问方式、部署方式和是否需要权限。",
+      priority: "P0",
+      defaultValue: "public_view",
+      mapsTo: ["usage_scope", "access_topology"],
+      options: [
+        { label: "公开展示", value: "public_view", recommended: true },
+        { label: "只给自己看", value: "self_view" },
+        { label: "固定几个人看", value: "fixed_group" },
+      ],
+    },
+    {
+      id: "history_versions",
+      question: "是否需要保留历史版本，还是只展示最新结果？",
+      whyImportant: "决定是否需要版本存储和历史切换。",
+      priority: "P1",
+      defaultValue: "latest_only",
+      mapsTo: ["data_model", "success_criteria"],
+      options: [
+        { label: "只展示最新结果", value: "latest_only", recommended: true },
+        { label: "保留历史版本", value: "keep_history" },
+        { label: "以后再说", value: "later" },
+      ],
+    },
+  ]);
 }
 
 function buildAppointmentQuickQuestions(): QuickQuestion[] {

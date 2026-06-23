@@ -384,6 +384,42 @@ describe("productSpecAssist", () => {
       expect(resultText).not.toContain("管理员登录才能访问");
     });
 
+    it("should contextualize local-first questions without creating a medicine domain", () => {
+      const result = executeAssist(
+        "用户想做一个家庭药品管理工具，功能需求是：记录家里有哪些药、快过期提醒、页面高级一点。",
+        undefined,
+        "web",
+        "normal",
+        true
+      );
+      const specResult = result.result as any;
+      const resultText = `${result.markdown}\n${JSON.stringify(result.result)}\n${JSON.stringify(result.quickQuestions)}`;
+
+      expect(result.routedIntent.scenario).toBe("build_product");
+      expect(result.selectedTool).toBe("spec_compile");
+      expect(result.nextAction.type).toBe("confirm_spec");
+      expect(result.nextAction.suggestedTool).toBe("spec_compile");
+      expect(result.nextAction.message).toContain("MVP 草案");
+      expect(specResult.mode).toBe("draft");
+      expect(specResult.spec.inputConsumption.matchedDomain).toBe("generic");
+      expect(specResult.spec.apiDesign).toContain("无需 API");
+      expect(result.technicalProfile?.shape).toBe("local_storage_tool");
+      expect(result.quickQuestions.map((q) => q.id)).toContain("data_storage");
+      expect(result.agentGuidance.join("\n")).toContain("不要把 quickQuestions 原样抛给用户");
+      expect(result.agentGuidance.join("\n")).toContain("最多问一句自然语言确认");
+      expect(result.agentGuidance.join("\n")).toContain("页面高级感只影响 UI");
+      expect(result.markdown).toContain("MVP 产品规格草案");
+      expect(result.markdown).toContain("小白默认路径");
+      expect(result.markdown).toContain("高级页面可以仍然使用 localStorage");
+      expect(resultText).toContain("药品名");
+      expect(resultText).toContain("有效期/到期日");
+      expect(resultText).toContain("到期/过期提醒");
+      expect(resultText).toContain("高级界面与响应式布局");
+      expect(resultText).not.toContain("手机号去重");
+      expect(resultText).not.toContain("导出 Excel");
+      expect(resultText).not.toContain("管理员登录才能访问");
+    });
+
     it("should expose technicalProfile and examples for travel map data pages", () => {
       const result = executeAssist(
         "我想做一个旅行攻略 HTML，用 data.json 保存美食、酒店、景点，还要在地图上看点位和按分类筛选。"
@@ -395,6 +431,59 @@ describe("productSpecAssist", () => {
       expect(result.quickQuestions.some((q) => q.id === "map_provider")).toBe(true);
       expect(result.markdown).not.toContain("手机号去重");
       expect(result.markdown).not.toContain("管理员登录");
+    });
+
+    it("should route roommate task scheduling to multi-user PM gate instead of static display", () => {
+      const result = executeAssist(
+        "我想做个多人使用的任务清单，我和我的室友的日程会在每一天具体的展示出来，哪些在同一个时间，哪些在不同时间，可以相互安排任务，对方需要认领，自己给自己安排的任务直接可用。"
+      );
+      const ids = result.quickQuestions.map((q) => q.id);
+
+      expect(result.selectedTool).toBe("spec_interrogate");
+      expect(result.pmIntentDecision?.needType).toBe("multi_user_collaboration");
+      expect(result.pmIntentDecision?.technicalShape).toBe("light_backend_json_sqlite");
+      expect(result.pmIntentDecision?.maintenanceMode).toBe("runtime_collaboration");
+      expect(ids).toContain("access_topology");
+      expect(ids).toContain("claim_rule");
+      expect(ids).toContain("time_conflict_rule");
+      expect(result.markdown).toContain("多人协作工具");
+      expect(result.markdown).toContain("局域网");
+      expect(result.markdown).not.toContain("联系方式怎么呈现");
+      expect(result.markdown).not.toContain("静态展示网站");
+    });
+
+    it("should route gym GEO content sites to agent-assisted content marketing", () => {
+      const result = executeAssist(
+        "我打算做个我健身房的网站，配合 GEO 服务，我会传很多我的 Q&A 上去，还有健身房的照片，用户的反馈，近期的促销活动，我的教练的信息等等上去，我会不定期的去维护上面的内容"
+      );
+      const ids = result.quickQuestions.map((q) => q.id);
+
+      expect(result.pmIntentDecision?.needType).toBe("content_marketing_site");
+      expect(result.pmIntentDecision?.usageScope).toBe("public_audience");
+      expect(result.pmIntentDecision?.maintenanceMode).toBe("agent_assisted");
+      expect(result.pmIntentDecision?.technicalShape).toBe("static_json_data_page");
+      expect(ids).toContain("maintenance_mode");
+      expect(ids).toContain("geo_goal");
+      expect(ids).toContain("visitor_submission");
+      expect(result.markdown).toContain("内容经常改不等于必须做后台");
+      expect(result.markdown).not.toContain("管理员登录才能访问");
+    });
+
+    it("should route xlsx chart sites to data visualization without defaulting to admin backend", () => {
+      const result = executeAssist(
+        "我想做个图表网站，每次我提供新的 xlsx 的文件，这个网站就根据新的数据渲染出结果"
+      );
+      const ids = result.quickQuestions.map((q) => q.id);
+
+      expect(result.pmIntentDecision?.needType).toBe("data_visualization_site");
+      expect(result.pmIntentDecision?.maintenanceMode).toBe("agent_assisted");
+      expect(result.pmIntentDecision?.technicalShape).toBe("static_json_data_page");
+      expect(result.pmIntentDecision?.mustNotUse).toContain("admin_backend_by_default");
+      expect(ids).toContain("data_update_mode");
+      expect(ids).toContain("audience_scope");
+      expect(ids).toContain("history_versions");
+      expect(result.markdown).toContain("新的 xlsx 是交给 Agent 更新网站");
+      expect(result.markdown).not.toContain("管理后台");
     });
 
     it("should treat internal knowledge bases as backend products, not launch or local tools", () => {

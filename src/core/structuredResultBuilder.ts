@@ -73,6 +73,7 @@ export function buildCompileStructuredOutput(
     },
     inputConsumption: spec?.inputConsumption,
     technicalProfile: spec?.technicalProfile,
+    pmIntentDecision: spec?.pmIntentDecision,
     spec: spec
       ? {
           productGoal: spec.productGoal,
@@ -87,6 +88,7 @@ export function buildCompileStructuredOutput(
           successCriteria: spec.successCriteria,
           assumptions: spec.assumptions,
           technicalProfile: spec.technicalProfile,
+          pmIntentDecision: spec.pmIntentDecision,
           inputConsumption: spec.inputConsumption,
         }
       : undefined,
@@ -137,6 +139,7 @@ export function buildAcceptanceStructuredOutput(
     productType: acceptance.productType,
     platform: acceptance.platform,
     technicalProfile: acceptance.technicalProfile,
+    pmIntentDecision: acceptance.pmIntentDecision,
     categories: acceptance.categories,
     definitionOfDone: acceptance.definitionOfDone,
     checklist,
@@ -186,6 +189,7 @@ export function buildArchitectureStructuredOutput(
       mvpSuggestion: decision.mvpSuggestion,
       productionSuggestion: decision.productionSuggestion,
       reasoning: decision.reasoning,
+      pmIntentDecision: decision.pmIntentDecision,
     },
     technicalProfile: decision.technicalProfile,
     riskLevel,

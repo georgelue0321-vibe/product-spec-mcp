@@ -3,6 +3,7 @@ import architectureRules from "../rules/architectureRules.json";
 import { classifyProductDomain } from "./domainClassifier.js";
 import { isSingleUserCrmContext } from "./contextSignals.js";
 import { buildTechnicalProfile, isLocalFirstProfile, type TechnicalProfile } from "./technicalProfile.js";
+import { decidePmIntent, type PmIntentDecision } from "./pmIntentGate.js";
 
 export interface ArchitectureDecision {
   canBeFrontendOnly: boolean;
@@ -20,6 +21,89 @@ export interface ArchitectureDecision {
   productionSuggestion: string;
   reasoning: string[];
   technicalProfile?: TechnicalProfile;
+  pmIntentDecision?: PmIntentDecision;
+}
+
+function buildPmGateArchitectureDecision(
+  decision: PmIntentDecision,
+  technicalProfile: TechnicalProfile
+): ArchitectureDecision | null {
+  if (decision.needType === "multi_user_collaboration") {
+    return {
+      canBeFrontendOnly: false,
+      needBackend: true,
+      needSeparation: false,
+      recommendedDatabase: "SQLite（MVP）",
+      needAuth: true,
+      needAdmin: false,
+      needLogging: true,
+      paymentRisk: false,
+      aiKeyRisk: false,
+      capacityRisk: false,
+      domain: "generic",
+      mvpSuggestion:
+        decision.accessTopology === "lan_only"
+          ? "局域网 Node + SQLite：一台电脑/NAS 运行服务，成员通过局域网 IP 访问"
+          : "Node + SQLite：固定几人外出访问时可先用低价公网 VPS + IP 地址跑通",
+      productionSuggestion: "后续再补域名、HTTPS、备份和更完整账号权限；国内公开域名按实际情况考虑备案",
+      reasoning: [
+        "多人、协作、认领和跨用户日程是运行时共享数据，不能用每人本地 localStorage 解决。",
+        "多人协作不直接等于正式公网 SaaS；先确认局域网是否足够。",
+      ],
+      technicalProfile,
+      pmIntentDecision: decision,
+    };
+  }
+
+  if (decision.needType === "content_marketing_site") {
+    const needsBackend = decision.maintenanceMode === "web_admin" || decision.maintenanceMode === "visitor_submission";
+    return {
+      canBeFrontendOnly: !needsBackend,
+      needBackend: needsBackend,
+      needSeparation: false,
+      recommendedDatabase: needsBackend ? "SQLite（MVP）" : "无需服务器数据库；使用静态内容文件",
+      needAuth: decision.maintenanceMode === "web_admin",
+      needAdmin: decision.maintenanceMode === "web_admin",
+      needLogging: needsBackend,
+      paymentRisk: false,
+      aiKeyRisk: false,
+      capacityRisk: false,
+      domain: "generic",
+      mvpSuggestion: needsBackend
+        ? "轻后台 CMS + SQLite，用于网页里编辑内容和上传图片"
+        : "静态内容营销站 + data.json/markdown/assets，由 Agent 更新内容并重新部署",
+      productionSuggestion: "需要多人网页维护或访客提交时再升级后台、审核、防垃圾和通知",
+      reasoning: ["内容经常改不直接触发后台；先看维护方式是不是 Agent-assisted。"],
+      technicalProfile,
+      pmIntentDecision: decision,
+    };
+  }
+
+  if (decision.needType === "data_visualization_site") {
+    const needsBackend = decision.maintenanceMode === "web_admin" || decision.maintenanceMode === "visitor_submission";
+    return {
+      canBeFrontendOnly: !needsBackend,
+      needBackend: needsBackend,
+      needSeparation: false,
+      recommendedDatabase: needsBackend ? "SQLite（MVP）" : "无需服务器数据库；使用静态 chart-data.json",
+      needAuth: needsBackend,
+      needAdmin: needsBackend,
+      needLogging: needsBackend,
+      paymentRisk: false,
+      aiKeyRisk: false,
+      capacityRisk: false,
+      domain: "generic",
+      mvpSuggestion: needsBackend
+        ? "上传接口 + xlsx 解析 + SQLite/文件存储，所有访客读取最新图表数据"
+        : "Agent 解析 xlsx 生成 JSON，静态图表站读取 JSON 渲染",
+      productionSuggestion: "需要历史版本、多人上传或权限时再补后端和数据库",
+      reasoning: ["定期提供 xlsx 不等于必须后台；Agent-assisted 更新可先静态化。"],
+      technicalProfile,
+      pmIntentDecision: decision,
+    };
+  }
+
+  return null;
 }
 
 export function decideArchitecture(
@@ -63,6 +147,14 @@ export function decideArchitecture(
     expected_users: expectedUsers,
     commercial_intent: commercialIntent,
   });
+  const pmIntentDecision = decidePmIntent(allText, {
+    expected_users: expectedUsers,
+    commercial_intent: commercialIntent,
+  });
+  const pmGateArchitecture = domain === "generic"
+    ? buildPmGateArchitectureDecision(pmIntentDecision, technicalProfile)
+    : null;
+  if (pmGateArchitecture) return pmGateArchitecture;
   const contentCommunityDomain = domain === "content_community";
   const singleUserCrm = domain === "crm" && isSingleUserCrmContext(allText, { expected_users: expectedUsers });
   const personalLocalSignal =

@@ -1,9 +1,11 @@
 import { z } from "zod";
 import { SpecInterrogateOutputSchema } from "./specInterrogate.output.js";
+import { SpecCompileOutputSchema } from "./specCompile.output.js";
 import { UiTranslateOutputSchema } from "./uiTranslate.output.js";
 import { DebugGuideOutputSchema } from "./debugGuide.output.js";
 import { ArchitectureDecideOutputSchema } from "./architectureDecide.output.js";
 import { TechnicalProfileSchema } from "../technicalProfile.schema.js";
+import { PmIntentDecisionSchema } from "../pmIntentDecision.schema.js";
 
 const QuickQuestionSchema = z.object({
   id: z.string(),
@@ -34,6 +36,7 @@ export const ProductSpecAssistOutputSchema = z.object({
   result: z
     .union([
       SpecInterrogateOutputSchema,
+      SpecCompileOutputSchema,
       UiTranslateOutputSchema,
       DebugGuideOutputSchema,
       ArchitectureDecideOutputSchema,
@@ -43,6 +46,7 @@ export const ProductSpecAssistOutputSchema = z.object({
     type: z.enum([
       "answer_questions",
       "compile_spec",
+      "confirm_spec",
       "translate_ui",
       "provide_debug_info",
       "review_launch_readiness",
@@ -52,6 +56,7 @@ export const ProductSpecAssistOutputSchema = z.object({
     suggestedTool: z.string().optional(),
   }),
   technicalProfile: TechnicalProfileSchema.optional(),
+  pmIntentDecision: PmIntentDecisionSchema.optional(),
   quickQuestions: z.array(QuickQuestionSchema),
   agentGuidance: z.array(z.string()),
 });

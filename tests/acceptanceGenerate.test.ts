@@ -192,6 +192,82 @@ describe("acceptanceGenerate", () => {
     expect(gameItems).not.toContain("管理员可以");
   });
 
+  it("should build contextual local-tool acceptance from horizontal signals", () => {
+    const result = generateAcceptance(
+      "家庭药品管理工具",
+      ["记录家里有哪些药", "快过期提醒", "页面高级一点"],
+      "web",
+      false,
+      false,
+      false
+    );
+    const allItems = result.categories.flatMap((c) => c.items).join("\n");
+
+    expect(result.technicalProfile?.shape).toBe("local_storage_tool");
+    expect(allItems).toContain("药品记录能保存药品名、数量/库存、有效期/到期日、分类、存放位置、备注");
+    expect(allItems).toContain("提醒列表能按日期排序");
+    expect(allItems).toContain("页面视觉风格一致");
+    expect(allItems).not.toContain("PostgreSQL");
+    expect(allItems).not.toContain("管理员可以");
+  });
+
+  it("should generate PM gate acceptance for roommate collaboration without localStorage-only guidance", () => {
+    const result = generateAcceptance(
+      "多人使用的任务清单",
+      ["我和室友的日程每天展示", "同一时间和不同时间都要展示", "可以相互安排任务", "对方需要认领"],
+      "web",
+      false,
+      false,
+      false
+    );
+    const allItems = result.categories.flatMap((c) => c.items).join("\n");
+
+    expect(result.pmIntentDecision?.needType).toBe("multi_user_collaboration");
+    expect(result.pmIntentDecision?.technicalShape).toBe("light_backend_json_sqlite");
+    expect(allItems).toContain("待认领状态");
+    expect(allItems).toContain("多人运行时协作数据不得分别保存在各自浏览器 localStorage");
+    expect(allItems).toContain("局域网、本机公网 IP 或域名 HTTPS");
+    expect(allItems).not.toContain("刷新页面后，本地保存的数据仍能恢复");
+  });
+
+  it("should generate PM gate acceptance for agent-maintained gym GEO sites without default CMS", () => {
+    const result = generateAcceptance(
+      "健身房 GEO 内容营销网站",
+      ["Q&A", "健身房照片", "用户反馈", "近期促销活动", "教练信息", "不定期维护内容", "Agent 帮我更新"],
+      "web",
+      false,
+      false,
+      false
+    );
+    const allItems = result.categories.flatMap((c) => c.items).join("\n");
+
+    expect(result.pmIntentDecision?.needType).toBe("content_marketing_site");
+    expect(result.pmIntentDecision?.maintenanceMode).toBe("agent_assisted");
+    expect(result.pmIntentDecision?.technicalShape).toBe("static_json_data_page");
+    expect(allItems).toContain("Agent 更新内容文件并重新部署");
+    expect(allItems).toContain("不强制生成 CMS 后台");
+    expect(allItems).not.toContain("管理员使用正确账号密码可以登录后台");
+  });
+
+  it("should generate PM gate acceptance for xlsx visualization sites without default backend upload", () => {
+    const result = generateAcceptance(
+      "图表网站",
+      ["每次我提供新的 xlsx 文件", "网站根据新的数据渲染出结果"],
+      "web",
+      false,
+      false,
+      false
+    );
+    const allItems = result.categories.flatMap((c) => c.items).join("\n");
+
+    expect(result.pmIntentDecision?.needType).toBe("data_visualization_site");
+    expect(result.pmIntentDecision?.maintenanceMode).toBe("agent_assisted");
+    expect(result.pmIntentDecision?.technicalShape).toBe("static_json_data_page");
+    expect(allItems).toContain("Agent 能从新 xlsx 或 CSV 生成页面读取的图表数据文件");
+    expect(allItems).toContain("默认不要求后台上传、数据库或登录权限");
+    expect(allItems).not.toContain("后端接口");
+  });
+
   it("should include backend rules when has backend", () => {
     const result = generateAcceptance("管理系统", ["管理"], "web", true, false, false);
     const backendCat = result.categories.find((c) => c.category === "后端验收");

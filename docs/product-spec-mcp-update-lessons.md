@@ -22,6 +22,7 @@
 | L10 | 小白本地工具常用隐式表达 | `src/core/contextSignals.ts`, `src/core/clarificationEngine.ts` | “数据存在浏览器里 + 清单/记录”不能回报名模板 | 坑点 20 |
 | L11 | “管理”是弱词，不能单独拉起后端 | `src/rules/architectureRules.json`, `src/core/architectureEngine.ts`, `src/core/contextSignals.ts` | “XX管理工具”本地场景仍应纯前端 | v0.3.17 复测 |
 | L12 | 先判技术复杂度，再判业务 domain | `src/core/technicalProfile.ts`, `src/core/assistEngine.ts`, `src/core/promptBuilder.ts`, `src/core/architectureEngine.ts`, `src/core/acceptanceEngine.ts` | 静态/本地/JSON/data.json/轻后端/SaaS 技术形态矩阵 | v0.3.18 local-first gate |
+| L14 | PM Gate 是产品经理式边界门，不是新 domain pack | `src/core/pmIntentGate.ts`, `src/core/assistEngine.ts`, `src/core/promptBuilder.ts`, `src/core/architectureEngine.ts`, `src/core/acceptanceEngine.ts`, `src/core/remotePmIntentGate.ts` | 多人协作、内容营销站、xlsx 图表站、远程 gate 降级、旧 domain 不被抢路由 | v0.3.26 PM Gate |
 
 ## L1：`spec_compile` 不能丢用户 answers
 
@@ -224,6 +225,31 @@ node -e "const fs=require('fs'); const pkg=require('./package.json'); const dist
 - 活动报名系统：“用户填写姓名、电话、报名人数；后台查看导出；管理员需要登录”必须保持 `light_backend_json_sqlite`，验收包含表单校验、导出和鉴权，不得进入 local JSON。
 - 内部知识库：“写文档、发布文档、草稿自己可见、发布后团队可见、不接 AI/支付”必须 route 到 build_product，assist 问题应包含文档字段/权限规则，验收包含 draft/published 权限。
 - 个人作品展示和抽签分组工具包含“不需要登录/不需要后台”时，`spec_compile` 不得把“登录”放入 coreFeatures，platform 不得变成 backend。
+
+## L14：PM Gate 是产品经理式边界门，不是新 domain pack
+
+**典型问题**：
+- 只靠补药品、食材、健身房、图表等 domain pack 会进入无穷枚举，遇到新型小白需求仍会重回报名、后台或 CRM 模板。
+- “多人、认领、协作、相互安排”应先确认访问拓扑和运行时数据，不应默认 localStorage-only，也不应直接推公网服务器。
+- “内容经常改、上传很多 Q&A/照片/促销/教练信息”不等于必须做 CMS 后台；Agent 时代可以默认内容文件 + Agent 更新 + 重新部署。
+- PM Gate 泛协作规则太宽时，会误抢“工单分配处理人”等已有稳定 domain。
+
+**更新原则**：
+- 先判 `usageScope / maintenanceMode / accessTopology`，再给技术形态；不要先套业务 domain。
+- PM Gate 只负责横向边界，不要把它写成新的大 domain pack。
+- 已稳定命中的 domain（工单、知识库、CRM、预约、报名、AI SaaS 等）优先保留原路线；PM Gate 的三类新门只在 `domain=generic` 时接管 architecture 和 acceptance。
+- 多人协作默认先问局域网是否足够；固定几人但外出也要用时，才建议低价 VPS + SQLite + IP 访问；域名/HTTPS/备案是再下一层升级。
+- 内容营销站和 xlsx 图表站默认 `agent_assisted + static_json_data_page + static_hosting_with_agent_updates`；只有网页编辑、网页上传、访客提交、多人维护、历史版本或权限控制才升级后端。
+- Online LLM Gate 只在本地低置信、冲突或 unknown 时辅助选门；本地枚举校验和强规则必须是最终裁判。
+
+**回归要求**：
+- 四阶段都要覆盖：`product_spec_assist`、`spec_compile`、`architecture_decide`、`acceptance_generate`。
+- 家庭药品仍是 local-first MVP 草案。
+- 室友任务清单进入 `multi_user_collaboration + light_backend_json_sqlite`，并追问局域网/公网、认领规则、时间冲突。
+- 健身房 GEO 内容站进入 `content_marketing_site + agent_assisted + static_json_data_page`，不得默认 CMS 后台。
+- xlsx 图表站进入 `data_visualization_site + agent_assisted + static_json_data_page`，不得默认上传后台/数据库。
+- 工单、知识库、CRM 等旧 domain 不得被 PM Gate 泛协作门抢路由。
+- 远程 gate 必测：本地高置信不调用 LLM、force/低置信调用 LLM、远端 invalid JSON 或非法枚举降级、远端错判 static page 时本地强规则修回多人协作。
 
 以下坑点仍保留在 `docs/workbuddy-mcp-pitfalls.md`，但不进入本项目更新经验索引：
 

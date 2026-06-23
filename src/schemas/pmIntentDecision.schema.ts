@@ -1,0 +1,56 @@
+import { z } from "zod";
+
+export const PmIntentDecisionSchema = z.object({
+  needType: z.enum([
+    "static_display",
+    "personal_local_tool",
+    "multi_user_collaboration",
+    "content_marketing_site",
+    "data_visualization_site",
+    "transaction_workflow",
+    "content_knowledge",
+    "ai_automation",
+    "unknown",
+  ]),
+  usageScope: z.enum(["self", "fixed_group", "public_audience", "unknown"]),
+  maintenanceMode: z.enum([
+    "agent_assisted",
+    "manual_files",
+    "web_admin",
+    "visitor_submission",
+    "runtime_collaboration",
+    "unknown",
+  ]),
+  accessTopology: z.enum(["single_device", "lan_only", "internet_ip", "public_domain", "unknown"]),
+  technicalShape: z.enum([
+    "static_page",
+    "local_storage_tool",
+    "local_json_import_export",
+    "static_json_data_page",
+    "light_backend_json_sqlite",
+    "full_backend_saas",
+    "unknown",
+  ]),
+  recommendedDeployment: z.enum([
+    "static_only",
+    "local_browser_only",
+    "static_hosting_with_agent_updates",
+    "local_lan_server_sqlite",
+    "cheap_vps_sqlite_by_ip",
+    "vps_domain_https",
+    "unknown",
+  ]),
+  route: z.enum(["spec_compile", "spec_interrogate", "architecture_decide"]),
+  confidence: z.enum(["high", "medium", "low"]),
+  strongSignals: z.array(z.string()),
+  weakSignals: z.array(z.string()),
+  coreObjects: z.array(z.string()),
+  states: z.array(z.string()),
+  actions: z.array(z.string()),
+  mustNotUse: z.array(z.string()),
+  boundaryQuestionIds: z.array(z.string()),
+  defaultAssumptions: z.array(z.string()),
+  source: z.enum(["local_rule", "online_llm", "merged"]),
+});
+
+export type PmIntentDecisionOutput = z.infer<typeof PmIntentDecisionSchema>;

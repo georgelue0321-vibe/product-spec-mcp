@@ -1,5 +1,7 @@
 import { isPersonalLocalFrontendToolContext, isSingleUserCrmContext } from "./contextSignals.js";
 import { classifyProductDomain, hasNegatedAi } from "./domainClassifier.js";
+import { buildLocalToolSignalProfile } from "./localToolSignals.js";
+import { decidePmIntent, type PmIntentDecision } from "./pmIntentGate.js";
 import { buildTechnicalProfile, isLocalFirstProfile, type TechnicalProfile } from "./technicalProfile.js";
 
 export interface SpecResult {
@@ -18,6 +20,7 @@ export interface SpecResult {
   successCriteria: string[];
   assumptions: string[];
   technicalProfile?: TechnicalProfile;
+  pmIntentDecision?: PmIntentDecision;
   inputConsumption?: {
     consumedAnswers: string[];
     unusedAnswers: string[];
@@ -36,6 +39,7 @@ export function buildSpec(
   // Normalize Chinese answer keys to English keys
   const normalizedContext = normalizeContext(context);
   const technicalProfile = buildTechnicalProfile(rawIdea, normalizedContext);
+  const pmIntentDecision = decidePmIntent(rawIdea, normalizedContext);
   const classification = classifyProductDomain(rawIdea, normalizedContext);
   const shouldUseDomainPack =
     classification.domain !== "generic" &&
@@ -73,27 +77,40 @@ export function buildSpec(
     return withTechnicalProfile(buildRegistrationSpec(rawIdea, normalizedContext, readiness), technicalProfile);
   }
 
+  if (classification.domain === "generic" && shouldUsePmGateSpec(pmIntentDecision)) {
+    return withTechnicalProfile(buildPmGateSpec(rawIdea, normalizedContext, readiness, pmIntentDecision), technicalProfile);
+  }
+
   const hasStructuredAnswers = hasUnsupportedStructuredAnswers(normalizedContext);
   const personalLocalTool = isLocalFirstProfile(technicalProfile) || isPersonalLocalFrontendToolContext(rawIdea, normalizedContext);
-  const genericReadinessScore = hasStructuredAnswers ? Math.min(Math.max(readiness.score, 60), 79) : readiness.score;
+  const localSignalProfile = personalLocalTool ? buildLocalToolSignalProfile(rawIdea) : undefined;
+  const hasLocalSignals = Boolean(localSignalProfile && (localSignalProfile.featureHints.length > 0 || localSignalProfile.recordObject !== "记录"));
+  const genericReadinessScore = hasStructuredAnswers
+    ? Math.min(Math.max(readiness.score, 60), 79)
+    : hasLocalSignals
+    ? Math.max(readiness.score, 60)
+    : readiness.score;
   const genericReadinessStatus = readinessStatusFromScore(genericReadinessScore);
   const isActionable = !hasStructuredAnswers && genericReadinessScore >= 70;
   const productGoal =
-    normalizedContext.product_goal || extractGoal(rawIdea);
+    normalizedContext.product_goal || extractGoal(rawIdea) || (hasLocalSignals && localSignalProfile ? `${localSignalProfile.recordObject}管理工具` : "");
   if (!productGoal) {
     assumptions.push("产品目标：未明确，需要用户确认");
   }
 
   const targetUser =
-    normalizedContext.target_user || extractTargetUser(rawIdea);
+    normalizedContext.target_user || (hasLocalSignals ? inferLocalFirstTargetUser(rawIdea) : extractTargetUser(rawIdea));
   if (!targetUser) {
     assumptions.push("目标用户：默认为个人用户");
   }
 
   const platform = normalizedContext.platform || extractPlatform(rawIdea) || "web";
+  const extractedFeatures = personalLocalTool
+    ? buildLocalFirstExtractedFeatures(rawIdea)
+    : extractFeatures(rawIdea);
   const coreFeatures = hasStructuredAnswers
-    ? buildGenericCoreFeatures(normalizedContext, extractFeatures(rawIdea))
-    : toArray(normalizedContext.core_features, extractFeatures(rawIdea));
+    ? buildGenericCoreFeatures(normalizedContext, extractedFeatures)
+    : toArray(normalizedContext.core_features, extractedFeatures);
 
   const isGenericFeatures = coreFeatures.length === 1 && coreFeatures[0] === "核心功能";
   if (isGenericFeatures) {
@@ -107,7 +124,13 @@ export function buildSpec(
     normalizedContext.data_persistence === true ||
     normalizedContext.user_roles === true ||
     normalizedContext.backend_need === true;
-  const dataModel = buildDataModel(normalizedContext, needsBackend, technicalProfile);
+  const dataModel = buildDataModel(normalizedContext, needsBackend, technicalProfile, rawIdea);
+  const successCriteria = personalLocalTool
+    ? buildLocalFirstSuccessCriteria(rawIdea)
+    : ["核心功能可用", "无明显 Bug", "用户体验流畅"];
+  const nonGoals = personalLocalTool
+    ? ["暂不包含登录/注册", "暂不包含后台管理系统", "暂不包含多人多设备同步"]
+    : ["暂不包含高级功能", "暂不包含移动端 App"];
 
   return {
     readinessScore: genericReadinessScore,
@@ -127,16 +150,210 @@ export function buildSpec(
     riskBoundaries: hasStructuredAnswers
       ? ["未命中稳定 domain pack，当前规格仅可作为草案；禁止静默复用其它业务模板。"]
       : buildRiskBoundaries(normalizedContext),
-    nonGoals: toArray(normalizedContext.non_goals, ["暂不包含高级功能", "暂不包含移动端 App"]),
-    successCriteria: toArray(normalizedContext.success_criteria, ["核心功能可用", "无明显 Bug", "用户体验流畅"]),
+    nonGoals: toArray(normalizedContext.non_goals, nonGoals),
+    successCriteria: toArray(normalizedContext.success_criteria, successCriteria),
     assumptions,
     technicalProfile,
+    pmIntentDecision,
     inputConsumption: buildInputConsumption(normalizedContext, Object.keys(normalizedContext), "generic", "low"),
   };
 }
 
 function withTechnicalProfile(spec: SpecResult, technicalProfile: TechnicalProfile): SpecResult {
   return { ...spec, technicalProfile };
+}
+
+function shouldUsePmGateSpec(decision: PmIntentDecision): boolean {
+  return [
+    "multi_user_collaboration",
+    "content_marketing_site",
+    "data_visualization_site",
+  ].includes(decision.needType);
+}
+
+function buildPmGateSpec(
+  rawIdea: string,
+  context: Record<string, any>,
+  readiness: { score: number; fields: Record<string, any> },
+  decision: PmIntentDecision
+): SpecResult {
+  const score = Math.min(Math.max(readiness.score, 60), 79);
+  const productGoal = context.product_goal || pmGateProductGoal(decision);
+  const targetUser = context.target_user || pmGateTargetUser(decision);
+  const assumptions = [...decision.defaultAssumptions];
+
+  return {
+    readinessScore: score,
+    readinessStatus: readinessStatusFromScore(score),
+    isActionable: false,
+    productGoal,
+    targetUser,
+    platform: context.platform || "web",
+    coreFeatures: pmGateCoreFeatures(decision),
+    dataModel: pmGateDataModel(decision),
+    architecture: pmGateArchitecture(decision),
+    apiDesign: pmGateApiDesign(decision),
+    riskBoundaries: pmGateRiskBoundaries(decision),
+    nonGoals: pmGateNonGoals(decision),
+    successCriteria: pmGateSuccessCriteria(decision),
+    assumptions,
+    pmIntentDecision: decision,
+    inputConsumption: buildInputConsumption(context, Object.keys(context), "generic", decision.confidence),
+  };
+}
+
+function pmGateProductGoal(decision: PmIntentDecision): string {
+  if (decision.needType === "multi_user_collaboration") return "多人共享任务日程工具";
+  if (decision.needType === "content_marketing_site") return "内容营销网站";
+  if (decision.needType === "data_visualization_site") return "数据图表展示网站";
+  return "产品 MVP";
+}
+
+function pmGateTargetUser(decision: PmIntentDecision): string {
+  if (decision.usageScope === "fixed_group") return "固定小范围成员";
+  if (decision.usageScope === "public_audience") return "公开访问用户和站点维护者";
+  if (decision.usageScope === "self") return "个人使用者";
+  return "待用户确认";
+}
+
+function pmGateCoreFeatures(decision: PmIntentDecision): string[] {
+  if (decision.needType === "multi_user_collaboration") {
+    return [
+      "成员任务日程展示",
+      "自己给自己安排任务直接生效",
+      "给别人安排任务进入待认领",
+      "任务认领和完成状态流转",
+      "同一时间任务并排展示或高亮冲突",
+    ];
+  }
+  if (decision.needType === "content_marketing_site") {
+    return [
+      "健身房基础信息展示",
+      "Q&A/FAQ 内容页",
+      "照片和用户反馈展示",
+      "近期促销活动展示",
+      "教练信息展示",
+      "GEO/SEO 结构化内容",
+    ];
+  }
+  if (decision.needType === "data_visualization_site") {
+    return [
+      "xlsx 数据解析流程",
+      "图表数据 JSON 生成",
+      "图表页面渲染",
+      "最新数据结果展示",
+    ];
+  }
+  return ["核心功能待确认"];
+}
+
+function pmGateDataModel(decision: PmIntentDecision): string {
+  if (decision.needType === "multi_user_collaboration") {
+    return [
+      "SQLite（MVP）",
+      "users(id, name, access_code, created_at)",
+      "tasks(id, title, description, start_at, end_at, creator_id, assignee_id, status, created_at, updated_at)",
+      "task_events(id, task_id, actor_id, action, note, created_at)",
+      "status 建议：self_active / pending_claim / claimed / done / cancelled",
+    ].join("\n");
+  }
+  if (decision.needType === "content_marketing_site") {
+    return [
+      "静态内容文件：data/site.json + markdown 内容 + assets 图片目录",
+      "site_profile(name, address, hours, phone, geo_keywords)",
+      "faqs(question, answer, category)",
+      "coaches(name, title, specialties, bio, photo)",
+      "promotions(title, description, start_date, end_date, status)",
+      "testimonials(author_label, content, source, status)",
+      "默认由 Agent 更新内容文件并重新部署，不默认建设 CMS 后台。",
+    ].join("\n");
+  }
+  if (decision.needType === "data_visualization_site") {
+    return [
+      "静态数据文件：data/chart-data.json",
+      "Agent 从 xlsx 解析出 rows、columns、metrics、chart_config",
+      "页面读取 chart-data.json 渲染图表；默认只展示最新结果。",
+      "如改为网页上传且所有访客看最新结果，再升级上传接口和服务器存储。",
+    ].join("\n");
+  }
+  return "待确认数据模型";
+}
+
+function pmGateArchitecture(decision: PmIntentDecision): string {
+  if (decision.needType === "multi_user_collaboration") {
+    return decision.accessTopology === "lan_only"
+      ? "局域网轻后端：一台本机/NAS 运行 Node + SQLite，成员通过局域网 IP 访问。"
+      : "轻后端 MVP：Node + SQLite；固定几人外出访问时可用低价公网 VPS + IP 地址先跑通。";
+  }
+  if (decision.needType === "content_marketing_site") {
+    return "静态内容营销站：HTML/CSS/JS + 静态内容文件 + 图片资源；由 Agent 维护内容并重新部署。";
+  }
+  if (decision.needType === "data_visualization_site") {
+    return "静态数据图表站：Agent 解析 xlsx 生成 JSON，前端读取 JSON 并渲染图表；不默认后台或数据库。";
+  }
+  return "待确认架构";
+}
+
+function pmGateApiDesign(decision: PmIntentDecision): string {
+  if (decision.needType === "multi_user_collaboration") {
+    return [
+      "GET /api/schedule?date=YYYY-MM-DD",
+      "POST /api/tasks",
+      "POST /api/tasks/:id/claim",
+      "POST /api/tasks/:id/complete",
+      "PATCH /api/tasks/:id",
+    ].join("\n");
+  }
+  return "无需 REST API；由 Agent 更新静态内容/数据文件后重新部署。";
+}
+
+function pmGateRiskBoundaries(decision: PmIntentDecision): string[] {
+  if (decision.needType === "multi_user_collaboration") {
+    return ["多人运行时数据需要统一数据源，不能用每人各自 localStorage 解决。", "公网访问时要确认是否接受 IP 访问，域名和 HTTPS 可作为正式化阶段。"];
+  }
+  if (decision.needType === "content_marketing_site") {
+    return ["内容经常改不等于必须建设后台；只有网页编辑、多人维护或访客提交才升级后端。"];
+  }
+  if (decision.needType === "data_visualization_site") {
+    return ["每次提供 xlsx 可由 Agent 更新静态数据；只有网页上传、统一最新数据或历史版本才升级后端。"];
+  }
+  return [];
+}
+
+function pmGateNonGoals(decision: PmIntentDecision): string[] {
+  if (decision.needType === "multi_user_collaboration") return ["暂不默认做域名/备案/完整公网运维", "暂不做复杂 RBAC"];
+  if (decision.needType === "content_marketing_site") return ["暂不默认做 CMS 后台", "暂不默认开放访客提交"];
+  if (decision.needType === "data_visualization_site") return ["暂不默认做网页上传后台", "暂不默认保存历史版本"];
+  return ["暂不包含高级功能"];
+}
+
+function pmGateSuccessCriteria(decision: PmIntentDecision): string[] {
+  if (decision.needType === "multi_user_collaboration") {
+    return [
+      "自己给自己安排的任务保存后立即出现在自己的日程中",
+      "安排给别人时任务进入待认领状态",
+      "对方认领后任务进入对方日程",
+      "同一时间任务能并排展示或高亮冲突",
+      "刷新后任务状态保持一致",
+    ];
+  }
+  if (decision.needType === "content_marketing_site") {
+    return [
+      "FAQ、照片、促销活动、教练信息能从内容文件渲染",
+      "Agent 更新内容文件并重新部署后，页面展示最新内容",
+      "页面包含基础 GEO/SEO 结构化信息、sitemap 或可索引内容",
+      "不出现需要后台登录才能维护的默认流程",
+    ];
+  }
+  if (decision.needType === "data_visualization_site") {
+    return [
+      "Agent 能从新的 xlsx 生成图表数据文件",
+      "页面读取最新数据文件并渲染图表",
+      "替换数据后重新部署能看到最新结果",
+      "不默认要求后台上传或数据库",
+    ];
+  }
+  return ["核心功能按确认边界实现"];
 }
 
 function buildRegistrationSpec(
@@ -1374,6 +1591,12 @@ function extractTargetUser(text: string): string {
   return "";
 }
 
+function inferLocalFirstTargetUser(text: string): string {
+  if (/家庭|家里|父母|老人|孩子|家人/.test(text)) return "家庭自用用户";
+  if (/个人|自己用|自用|我的/.test(text)) return "个人使用者";
+  return "个人使用者";
+}
+
 function extractPlatform(text: string): string {
   if (text.includes("小程序")) return "mini_program";
   if (text.includes("app") || text.includes("App")) return "app";
@@ -1399,12 +1622,19 @@ function extractFeatures(text: string): string[] {
   return features.length > 0 ? features : ["核心功能"];
 }
 
+function buildLocalFirstExtractedFeatures(text: string): string[] {
+  const genericFeatures = extractFeatures(text).filter((feature) => feature !== "核心功能" && feature !== "管理");
+  const signalProfile = buildLocalToolSignalProfile(text);
+  const features = [...genericFeatures, ...signalProfile.featureHints];
+  return features.length > 0 ? Array.from(new Set(features)) : ["核心功能"];
+}
+
 function isNegatedKeyword(text: string, keyword: string): boolean {
   const escaped = keyword.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   return new RegExp(`(不接|不做|不用|无需|不需要|暂不|先不|不要|没有).{0,8}${escaped}`, "i").test(text);
 }
 
-function buildDataModel(context: Record<string, any>, needsBackend = true, technicalProfile?: TechnicalProfile): string {
+function buildDataModel(context: Record<string, any>, needsBackend = true, technicalProfile?: TechnicalProfile, rawIdea = ""): string {
   if (technicalProfile?.shape === "static_page") return "无需数据持久化；纯 HTML/CSS/JS 静态展示。";
   if (technicalProfile?.shape === "static_json_data_page") {
     return [
@@ -1414,17 +1644,21 @@ function buildDataModel(context: Record<string, any>, needsBackend = true, techn
     ].join("\n");
   }
   if (technicalProfile?.shape === "local_json_import_export") {
+    const signalProfile = buildLocalToolSignalProfile(rawIdea);
     return [
       "浏览器本地存储 + JSON 文件导入导出",
       "localStorage key 示例：local_tool_records",
-      "JSON 示例：[{ \"id\": \"item-1\", \"name\": \"示例记录\", \"date\": \"2026-06-22\", \"status\": \"active\", \"note\": \"备注\" }]",
+      `字段建议：${signalProfile.fieldExample}`,
+      `JSON 示例：${buildLocalRecordJsonExample(signalProfile.recordObject, signalProfile.fieldExample)}`,
     ].join("\n");
   }
   if (technicalProfile?.shape === "local_storage_tool") {
+    const signalProfile = buildLocalToolSignalProfile(rawIdea);
     return [
       "浏览器本地存储：localStorage",
       "localStorage key 示例：personal_tool_records",
-      "记录示例：{ \"id\": \"item-1\", \"name\": \"示例记录\", \"date\": \"2026-06-22\", \"status\": \"active\", \"note\": \"备注\" }",
+      `字段建议：${signalProfile.fieldExample}`,
+      `记录示例：${buildLocalRecordJsonExample(signalProfile.recordObject, signalProfile.fieldExample)}`,
       "无需服务器数据库；后续如数据量较大可升级 IndexedDB。",
     ].join("\n");
   }
@@ -1434,6 +1668,45 @@ function buildDataModel(context: Record<string, any>, needsBackend = true, techn
   if (context.need_backend === false) return "无需数据库";
   if (!needsBackend) return "浏览器本地存储：localStorage 或单个 JSON 文件；无需服务器数据库";
   return "待确认：建议 SQLite（MVP）或 PostgreSQL（生产）";
+}
+
+function buildLocalRecordJsonExample(recordObject: string, fieldExample: string): string {
+  const labels = fieldExample.split("、").map((item) => item.trim()).filter(Boolean);
+  const record: Record<string, string | number> = {
+    id: "item-1",
+  };
+
+  for (const label of labels) {
+    if (label.includes("名")) record.name = `示例${recordObject}`;
+    else if (label.includes("数量") || label.includes("库存")) record.quantity = 1;
+    else if (label.includes("有效期") || label.includes("到期")) record.expireDate = "2026-12-31";
+    else if (label.includes("分类")) record.category = "默认分类";
+    else if (label.includes("位置") || label.includes("地点") || label.includes("地址")) record.location = "默认位置";
+    else if (label.includes("状态")) record.status = "normal";
+    else if (label.includes("金额") || label.includes("价格")) record.amount = 0;
+    else if (label.includes("链接")) record.url = "";
+    else if (label.includes("备注")) record.note = "备注";
+  }
+
+  record.updatedAt = "2026-06-23T00:00:00.000Z";
+  return JSON.stringify(record);
+}
+
+function buildLocalFirstSuccessCriteria(text: string): string[] {
+  const signalProfile = buildLocalToolSignalProfile(text);
+  const items = [...signalProfile.acceptanceItems];
+
+  if (signalProfile.featureHints.includes("新增/编辑/删除")) {
+    items.push(`${signalProfile.recordObject}记录支持新增、编辑、删除，操作后列表立即更新`);
+  }
+
+  if (signalProfile.featureHints.includes("搜索/筛选/分类")) {
+    items.push("搜索、分类或状态筛选能准确缩小列表，清空筛选后恢复全部记录");
+  }
+
+  items.push("刷新页面后，已保存记录仍能从 localStorage 恢复");
+
+  return Array.from(new Set(items));
 }
 
 function buildArchitectureRecommendation(context: Record<string, any>, needsBackend: boolean, technicalProfile?: TechnicalProfile): string {

@@ -1280,6 +1280,127 @@ describe("v0.3 black-box regression", () => {
       expect(combined).not.toContain("管理员登录才能访问");
     });
 
+    it("keeps bare household medicine requests local-first and contextual", async () => {
+      const message = "用户想做一个家庭药品管理工具，功能需求是：记录家里有哪些药、快过期提醒、页面高级一点。";
+      const assist = await callTool("product_spec_assist", {
+        message,
+        preferred_platform: "web",
+        strictness: "normal",
+      });
+      const assistCombined = `${text(assist)}\n${JSON.stringify(assist.structuredContent)}`;
+      const ids = assist.structuredContent.quickQuestions.map((q: any) => q.id);
+
+      expect(assist.structuredContent.routedIntent.scenario).toBe("build_product");
+      expect(assist.structuredContent.selectedTool).toBe("spec_compile");
+      expect(assist.structuredContent.nextAction.type).toBe("confirm_spec");
+      expect(assist.structuredContent.nextAction.suggestedTool).toBe("spec_compile");
+      expect(assist.structuredContent.nextAction.message).toContain("MVP 草案");
+      expect(assist.structuredContent.result.mode).toBe("draft");
+      expect(assist.structuredContent.result.spec.inputConsumption.matchedDomain).toBe("generic");
+      expect(assist.structuredContent.result.spec.apiDesign).toContain("无需 API");
+      expect(assist.structuredContent.technicalProfile.shape).toBe("local_storage_tool");
+      expect(ids).toContain("data_storage");
+      expect(assist.structuredContent.agentGuidance.join("\n")).toContain("不要把 quickQuestions 原样抛给用户");
+      expect(assist.structuredContent.agentGuidance.join("\n")).toContain("页面高级感只影响 UI");
+      expect(assistCombined).toContain("MVP 产品规格草案");
+      expect(assistCombined).toContain("药品名");
+      expect(assistCombined).toContain("到期/过期提醒");
+      expect(assistCombined).toContain("小白默认路径");
+      expect(assistCombined).toContain("高级页面可以仍然使用 localStorage");
+      expect(assistCombined).not.toContain("手机号去重");
+      expect(assistCombined).not.toContain("管理员登录才能访问");
+
+      const compile = await callTool("spec_compile", {
+        raw_idea: message,
+        answers: {},
+      });
+      const spec = compile.structuredContent.spec;
+      const specCombined = `${spec.coreFeatures.join("\n")}\n${spec.apiDesign}\n${spec.architecture}\n${JSON.stringify(spec.technicalProfile)}`;
+
+      expect(spec.inputConsumption.matchedDomain).toBe("generic");
+      expect(spec.technicalProfile.shape).toBe("local_storage_tool");
+      expect(specCombined).toContain("药品记录管理");
+      expect(specCombined).toContain("无需 API");
+      expect(specCombined).not.toContain("PostgreSQL");
+
+      const acceptance = await callTool("acceptance_generate", {
+        product_type: "家庭药品管理工具",
+        features: ["记录家里有哪些药", "快过期提醒", "页面高级一点"],
+        platform: "web",
+        has_backend: false,
+        has_payment: false,
+        has_auth: false,
+      });
+      const items = acceptance.structuredContent.checklist.map((item: any) => item.text).join("\n");
+
+      expect(acceptance.structuredContent.technicalProfile.shape).toBe("local_storage_tool");
+      expect(items).toContain("药品记录能保存药品名、数量/库存、有效期/到期日、分类、存放位置、备注");
+      expect(items).toContain("页面视觉风格一致");
+      expect(items).not.toContain("管理员可以");
+    });
+
+    it("routes roommate task scheduling through the multi-user PM gate", async () => {
+      const result = await callTool("product_spec_assist", {
+        message: "我想做个多人使用的任务清单，我和我的室友的日程会在每一天具体的展示出来，哪些在同一个时间，哪些在不同时间，可以相互安排任务，对方需要认领，自己给自己安排的任务直接可用。",
+        preferred_platform: "web",
+        strictness: "normal",
+      });
+      const combined = `${text(result)}\n${JSON.stringify(result.structuredContent)}`;
+      const ids = result.structuredContent.quickQuestions.map((q: any) => q.id);
+
+      expect(result.structuredContent.selectedTool).toBe("spec_interrogate");
+      expect(result.structuredContent.pmIntentDecision.needType).toBe("multi_user_collaboration");
+      expect(result.structuredContent.pmIntentDecision.technicalShape).toBe("light_backend_json_sqlite");
+      expect(result.structuredContent.pmIntentDecision.maintenanceMode).toBe("runtime_collaboration");
+      expect(ids).toContain("access_topology");
+      expect(ids).toContain("claim_rule");
+      expect(ids).toContain("time_conflict_rule");
+      expect(combined).toContain("多人协作工具");
+      expect(combined).toContain("局域网");
+      expect(combined).not.toContain("联系方式怎么呈现");
+      expect(combined).not.toContain("静态展示网站");
+    });
+
+    it("routes gym GEO content sites through content marketing without default CMS", async () => {
+      const result = await callTool("product_spec_assist", {
+        message: "我打算做个我健身房的网站，配合 GEO 服务，我会传很多我的 Q&A 上去，还有健身房的照片，用户的反馈，近期的促销活动，我的教练的信息等等上去，我会不定期的去维护上面的内容",
+        preferred_platform: "web",
+        strictness: "normal",
+      });
+      const combined = `${text(result)}\n${JSON.stringify(result.structuredContent)}`;
+      const ids = result.structuredContent.quickQuestions.map((q: any) => q.id);
+
+      expect(result.structuredContent.pmIntentDecision.needType).toBe("content_marketing_site");
+      expect(result.structuredContent.pmIntentDecision.usageScope).toBe("public_audience");
+      expect(result.structuredContent.pmIntentDecision.maintenanceMode).toBe("agent_assisted");
+      expect(result.structuredContent.pmIntentDecision.technicalShape).toBe("static_json_data_page");
+      expect(ids).toContain("maintenance_mode");
+      expect(ids).toContain("geo_goal");
+      expect(ids).toContain("visitor_submission");
+      expect(combined).toContain("内容经常改不等于必须做后台");
+      expect(combined).not.toContain("管理员登录才能访问");
+    });
+
+    it("routes xlsx chart sites through data visualization without default backend", async () => {
+      const result = await callTool("product_spec_assist", {
+        message: "我想做个图表网站，每次我提供新的 xlsx 的文件，这个网站就根据新的数据渲染出结果",
+        preferred_platform: "web",
+        strictness: "normal",
+      });
+      const combined = `${text(result)}\n${JSON.stringify(result.structuredContent)}`;
+      const ids = result.structuredContent.quickQuestions.map((q: any) => q.id);
+
+      expect(result.structuredContent.pmIntentDecision.needType).toBe("data_visualization_site");
+      expect(result.structuredContent.pmIntentDecision.maintenanceMode).toBe("agent_assisted");
+      expect(result.structuredContent.pmIntentDecision.technicalShape).toBe("static_json_data_page");
+      expect(result.structuredContent.pmIntentDecision.mustNotUse).toContain("admin_backend_by_default");
+      expect(ids).toContain("data_update_mode");
+      expect(ids).toContain("audience_scope");
+      expect(ids).toContain("history_versions");
+      expect(combined).toContain("新的 xlsx 是交给 Agent 更新网站");
+      expect(combined).not.toContain("管理后台");
+    });
+
     it("does not generate Chinese API paths and preserves settlement rules for AA calculators", async () => {
       const result = await callTool("spec_compile", {
         raw_idea: "我想做一个 AA 分账计算器，添加人员、消费项目、付款人和参与人，自动算出谁转给谁多少钱。纯前端本地用。",
