@@ -43,7 +43,7 @@ export async function callRemotePmIntentGate(
   if (!url) return null;
 
   const controller = new AbortController();
-  const timeout = Number(process.env.PRODUCT_SPEC_REMOTE_GATE_TIMEOUT_MS || 2500);
+  const timeout = Number(process.env.PRODUCT_SPEC_REMOTE_GATE_TIMEOUT_MS || 10000);
   const timer = setTimeout(() => controller.abort(), timeout);
 
   try {
@@ -241,6 +241,7 @@ function enforceRemoteHardRules(remote: PmIntentDecision, local: PmIntentDecisio
       needType: "multi_user_collaboration",
       maintenanceMode: "runtime_collaboration",
       technicalShape: "light_backend_json_sqlite",
+      recommendedDeployment: recommendedDeploymentForCollaboration(remote.accessTopology),
       route: "spec_interrogate",
       mustNotUse: mergeStrings(remote.mustNotUse, ["static_display", "local_storage_only"]),
     };
@@ -259,6 +260,15 @@ function enforceRemoteHardRules(remote: PmIntentDecision, local: PmIntentDecisio
   }
 
   return remote;
+}
+
+function recommendedDeploymentForCollaboration(
+  accessTopology: PmIntentDecision["accessTopology"]
+): PmIntentDecision["recommendedDeployment"] {
+  if (accessTopology === "lan_only") return "local_lan_server_sqlite";
+  if (accessTopology === "internet_ip") return "cheap_vps_sqlite_by_ip";
+  if (accessTopology === "public_domain") return "vps_domain_https";
+  return "unknown";
 }
 
 function hasRouteShapeConflict(decision: PmIntentDecision): boolean {

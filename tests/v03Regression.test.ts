@@ -33,6 +33,65 @@ describe("v0.3 black-box regression", () => {
     return result.content?.map((item) => item.text || "").join("\n") || "";
   }
 
+  describe("tool schemas", () => {
+    it("does not expose duplicated boolean anyOf entries for weak-agent coercion", async () => {
+      const listed = await client.listTools() as any;
+      const assist = listed.tools.find((tool: any) => tool.name === "product_spec_assist");
+      const compile = listed.tools.find((tool: any) => tool.name === "spec_compile");
+      const architecture = listed.tools.find((tool: any) => tool.name === "architecture_decide");
+      const acceptance = listed.tools.find((tool: any) => tool.name === "acceptance_generate");
+      const connect = listed.tools.find((tool: any) => tool.name === "product_spec_connect");
+
+      expect(JSON.stringify(assist.inputSchema.properties.auto_execute)).not.toContain("anyOf");
+      expect(JSON.stringify(compile.inputSchema.properties.allow_assumptions)).not.toContain("anyOf");
+      expect(JSON.stringify(compile.inputSchema.properties.min_readiness_score)).not.toContain("anyOf");
+      expect(JSON.stringify(architecture.inputSchema.properties.commercial_intent)).not.toContain("anyOf");
+      expect(JSON.stringify(acceptance.inputSchema.properties.has_backend)).not.toContain("anyOf");
+      expect(connect).toBeTruthy();
+      expect(connect.inputSchema.properties.connect_file).toBeTruthy();
+    });
+
+    it("parses online gate connect files into MCP environment variables", async () => {
+      const result = await callTool("product_spec_connect", {
+        client: "regression-agent",
+        connect_file: {
+          type: "product-spec-mcp-connect",
+          version: 1,
+          instructions: {
+            env: {
+              PRODUCT_SPEC_REMOTE_GATE_URL: "https://productmcp.opc-mind.top/v1/pm-intent",
+              PRODUCT_SPEC_REMOTE_GATE_TOKEN: "psm_test_token",
+              PRODUCT_SPEC_REMOTE_GATE_MODE: "auto",
+              PRODUCT_SPEC_REMOTE_GATE_TIMEOUT_MS: "10000",
+              PRODUCT_SPEC_TELEMETRY: "off",
+            },
+          },
+        },
+      });
+
+      expect(result.structuredContent.configured).toBe(false);
+      expect(result.structuredContent.env.PRODUCT_SPEC_REMOTE_GATE_URL).toBe("https://productmcp.opc-mind.top/v1/pm-intent");
+      expect(result.structuredContent.env.PRODUCT_SPEC_REMOTE_GATE_TOKEN).toBe("psm_test_token");
+      expect(text(result)).toContain("product-spec MCP 在线增强连接");
+      expect(text(result)).toContain("需要写入 MCP 配置的环境变量");
+    });
+
+    it("marks invalid online gate connect files as tool errors", async () => {
+      const result = await callTool("product_spec_connect", {
+        client: "regression-agent",
+        connect_file: {
+          type: "wrong-file",
+          instructions: { env: {} },
+        },
+      });
+
+      expect(result.structuredContent.configured).toBe(false);
+      expect(result.structuredContent.isError).toBe(true);
+      expect(text(result)).toContain("连接文件 type 不是 product-spec-mcp-connect");
+      expect(text(result)).toContain("连接文件缺少 PRODUCT_SPEC_REMOTE_GATE_URL 或 PRODUCT_SPEC_REMOTE_GATE_TOKEN");
+    });
+  });
+
   describe("activity registration", () => {
     it("routes registration ideas to spec_interrogate with registration questions", async () => {
       const result = await callTool("product_spec_assist", {
@@ -1307,6 +1366,9 @@ describe("v0.3 black-box regression", () => {
       expect(assistCombined).toContain("到期/过期提醒");
       expect(assistCombined).toContain("小白默认路径");
       expect(assistCombined).toContain("高级页面可以仍然使用 localStorage");
+      expect(assistCombined).toContain("数据默认保存在当前浏览器 localStorage");
+      expect(assistCombined).toContain("第一版默认不需要登录、注册、后台管理或管理员角色");
+      expect(assistCombined).not.toContain("- 无默认假设");
       expect(assistCombined).not.toContain("手机号去重");
       expect(assistCombined).not.toContain("管理员登录才能访问");
 
@@ -1319,6 +1381,8 @@ describe("v0.3 black-box regression", () => {
 
       expect(spec.inputConsumption.matchedDomain).toBe("generic");
       expect(spec.technicalProfile.shape).toBe("local_storage_tool");
+      expect(spec.assumptions).toContain("数据默认保存在当前浏览器 localStorage 中，刷新后保留，但不做跨设备同步。");
+      expect(spec.assumptions).toContain("第一版默认不需要登录、注册、后台管理或管理员角色。");
       expect(specCombined).toContain("药品记录管理");
       expect(specCombined).toContain("无需 API");
       expect(specCombined).not.toContain("PostgreSQL");
@@ -1339,6 +1403,34 @@ describe("v0.3 black-box regression", () => {
       expect(items).not.toContain("管理员可以");
     });
 
+    it("keeps direct spec_interrogate calls on household medicine inside the PM local-tool gate", async () => {
+      const result = await callTool("spec_interrogate", {
+        raw_idea: "使用 mcp：product-spec 帮我做一个家庭药品管理工具，能记录家里有哪些药，快过期提醒，页面高级一点。",
+        scenario: "build_product",
+        target_platform: "web",
+        strictness: "normal",
+      });
+      const combined = `${text(result)}\n${JSON.stringify(result.structuredContent)}`;
+      const fields = result.structuredContent.clarification.questions.map((q: any) => q.field);
+
+      expect(result.structuredContent.readiness.status).toBe("Draft Ready");
+      expect(result.structuredContent.recommendation.canProceed).toBe(true);
+      expect(result.structuredContent.recommendation.suggestedNextTool).toBe("spec_compile");
+      expect(result.structuredContent.pmIntentDecision.needType).toBe("personal_local_tool");
+      expect(result.structuredContent.pmIntentDecision.technicalShape).toBe("local_storage_tool");
+      expect(result.structuredContent.pmIntentDecision.recommendedDeployment).toBe("local_browser_only");
+      expect(fields).toContain("record_fields");
+      expect(fields).toContain("data_storage");
+      expect(combined).toContain("PM Gate 判断");
+      expect(combined).toContain("最多只问一句");
+      expect(combined).toContain("浏览器 localStorage");
+      expect(combined).toContain("不需要登录、后台或管理员");
+      expect(combined).not.toContain("不建议直接开发");
+      expect(combined).not.toContain("请复制以下内容并填写");
+      expect(combined).not.toContain("手机号去重");
+      expect(combined).not.toContain("管理员登录才能访问");
+    });
+
     it("routes roommate task scheduling through the multi-user PM gate", async () => {
       const result = await callTool("product_spec_assist", {
         message: "我想做个多人使用的任务清单，我和我的室友的日程会在每一天具体的展示出来，哪些在同一个时间，哪些在不同时间，可以相互安排任务，对方需要认领，自己给自己安排的任务直接可用。",
@@ -1352,6 +1444,7 @@ describe("v0.3 black-box regression", () => {
       expect(result.structuredContent.pmIntentDecision.needType).toBe("multi_user_collaboration");
       expect(result.structuredContent.pmIntentDecision.technicalShape).toBe("light_backend_json_sqlite");
       expect(result.structuredContent.pmIntentDecision.maintenanceMode).toBe("runtime_collaboration");
+      expect(result.structuredContent.pmIntentDecision.recommendedDeployment).toBe("unknown");
       expect(ids).toContain("access_topology");
       expect(ids).toContain("claim_rule");
       expect(ids).toContain("time_conflict_rule");
@@ -1359,6 +1452,51 @@ describe("v0.3 black-box regression", () => {
       expect(combined).toContain("局域网");
       expect(combined).not.toContain("联系方式怎么呈现");
       expect(combined).not.toContain("静态展示网站");
+    });
+
+    it("keeps direct spec_interrogate calls on roommate tasks inside the PM collaboration gate", async () => {
+      const result = await callTool("spec_interrogate", {
+        raw_idea: "我想做个多人使用的任务清单，我和我的室友的日程会在每一天具体的展示出来，哪些在同一个时间，哪些在不同时间，可以相互安排任务，对方需要认领，自己给自己安排的任务直接可用。",
+        scenario: "build_product",
+        target_platform: "web",
+        strictness: "normal",
+      });
+      const combined = `${text(result)}\n${JSON.stringify(result.structuredContent)}`;
+      const fields = result.structuredContent.clarification.questions.map((q: any) => q.field);
+
+      expect(result.structuredContent.pmIntentDecision.needType).toBe("multi_user_collaboration");
+      expect(result.structuredContent.pmIntentDecision.technicalShape).toBe("light_backend_json_sqlite");
+      expect(result.structuredContent.pmIntentDecision.recommendedDeployment).toBe("unknown");
+      expect(fields).toContain("access_topology");
+      expect(fields).toContain("claim_rule");
+      expect(fields).toContain("time_conflict_rule");
+      expect(combined).toContain("多人协作工具");
+      expect(combined).toContain("局域网");
+      expect(combined).not.toContain("localStorage-only");
+    });
+
+    it("tolerates common weak-agent argument shapes over stdio", async () => {
+      const assist = await callTool("product_spec_assist", {
+        message: "家庭药品管理工具",
+        auto_execute: "false",
+      });
+      expect(assist.structuredContent.executed).toBe(false);
+
+      const compile = await callTool("spec_compile", {
+        raw_idea: "家庭药品管理工具，记录药品和有效期，页面内提醒。",
+        allow_assumptions: "true",
+        min_readiness_score: "60",
+      });
+      expect(compile.structuredContent.mode).toBe("draft");
+
+      const architecture = await callTool("architecture_decide", {
+        product_type: "家庭药品管理工具",
+        platform: "web",
+        features: { item: ["药品记录", "过期提醒", "页面高级一点"] },
+        commercial_intent: "false",
+      });
+      expect(architecture.structuredContent.decision.canBeFrontendOnly).toBe(true);
+      expect(architecture.structuredContent.technicalProfile.shape).toBe("local_storage_tool");
     });
 
     it("routes gym GEO content sites through content marketing without default CMS", async () => {

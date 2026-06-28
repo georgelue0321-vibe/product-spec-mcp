@@ -42,7 +42,7 @@ describe("remote PM intent gate", () => {
           boundaryQuestionIds: ["data_update_mode"],
         },
         llmGate: { used: true, provider: "deepseek", model: "flash", cacheHit: false },
-        rateLimit: { limit: 3, remaining: 2, resetAt: "2026-06-24T00:00:00+08:00" },
+        rateLimit: { limit: 20, remaining: 19, resetAt: "2026-06-24T00:00:00+08:00" },
       }),
     });
     vi.stubGlobal("fetch", fetchMock);
@@ -52,7 +52,7 @@ describe("remote PM intent gate", () => {
 
     expect(result?.decision.needType).toBe("data_visualization_site");
     expect(result?.decision.technicalShape).toBe("static_json_data_page");
-    expect(result?.meta.rateLimit?.remaining).toBe(2);
+    expect(result?.meta.rateLimit?.remaining).toBe(19);
     expect(body.message.length).toBeLessThanOrEqual(501);
     expect(fetchMock.mock.calls[0][1].headers.authorization).toBe("Bearer test-token");
   });
@@ -99,6 +99,40 @@ describe("remote PM intent gate", () => {
 
     expect(result?.decision.needType).toBe("multi_user_collaboration");
     expect(result?.decision.technicalShape).toBe("light_backend_json_sqlite");
+    expect(result?.decision.recommendedDeployment).toBe("unknown");
     expect(result?.decision.mustNotUse).toContain("local_storage_only");
+  });
+
+  it("should align collaboration deployment with resolved access topology after remote merge", async () => {
+    process.env.PRODUCT_SPEC_REMOTE_GATE_URL = "https://gate.example.com/v1/pm-intent";
+    process.env.PRODUCT_SPEC_REMOTE_GATE_MODE = "force";
+    const message = "我想做一个给小区邻居用的互助平台，大家可以发布求助和拼车信息";
+    const local = decidePmIntent(message, {});
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({
+          decision: {
+            bestGate: "multi_user_collaboration",
+            usageScope: "fixed_group",
+            maintenanceMode: "agent_assisted",
+            accessTopology: "internet_ip",
+            technicalShape: "static_json_data_page",
+            recommendedDeployment: "static_hosting_with_agent_updates",
+            confidence: "high",
+            strongSignals: ["互助平台", "拼车信息"],
+          },
+        }),
+      })
+    );
+
+    const result = await callRemotePmIntentGate(message, {}, local);
+
+    expect(result?.decision.source).toBe("merged");
+    expect(result?.decision.needType).toBe("multi_user_collaboration");
+    expect(result?.decision.maintenanceMode).toBe("runtime_collaboration");
+    expect(result?.decision.technicalShape).toBe("light_backend_json_sqlite");
+    expect(result?.decision.recommendedDeployment).toBe("cheap_vps_sqlite_by_ip");
   });
 });

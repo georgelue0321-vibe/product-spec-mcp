@@ -22,6 +22,7 @@ import { buildLocalToolSignalProfile } from "./localToolSignals.js";
 import { buildTechnicalProfile, isLocalFirstProfile, type TechnicalProfile } from "./technicalProfile.js";
 import { decidePmIntent, type PmIntentDecision } from "./pmIntentGate.js";
 import { callRemotePmIntentGate } from "./remotePmIntentGate.js";
+import { isRemoteGateConfigured } from "./connectGuide.js";
 import type { SpecInterrogateOutput } from "../schemas/outputs/specInterrogate.output.js";
 import type { SpecCompileOutput } from "../schemas/outputs/specCompile.output.js";
 import type { UiTranslateOutput } from "../schemas/outputs/uiTranslate.output.js";
@@ -111,7 +112,7 @@ export async function executeAssistWithRemoteGate(
   if (result.routedIntent.scenario !== "build_product" || !result.pmIntentDecision) return result;
 
   const remote = await callRemotePmIntentGate(message, knownContext || {}, result.pmIntentDecision);
-  if (!remote) return result;
+  if (!remote) return appendConnectHintIfUseful(result);
   const merged = remote.decision;
 
   if (
@@ -137,7 +138,7 @@ export async function executeAssistWithRemoteGate(
     );
   }
 
-  return appendRemoteGateMeta({ ...result, pmIntentDecision: merged }, remote.meta.fallbackReason);
+  return appendConnectHintIfUseful(appendRemoteGateMeta({ ...result, pmIntentDecision: merged }, remote.meta.fallbackReason));
 }
 
 function detectPlatform(message: string, preferred: string): string {
@@ -246,6 +247,7 @@ function handleBuildProduct(
       quickQuestions,
       agentGuidance: [
         "面向小白本地工具时，不要把 quickQuestions 原样抛给用户，也不要要求用户回答类似“B + a”的结构化选项；已生成 MVP 草案，最多问一句自然语言确认。页面高级感只影响 UI，不要因此纠偏成后端、登录、多端同步或服务器数据库。",
+        "当前 nextAction 是 confirm_spec，表示草案已经生成；不要再调用 spec_interrogate、spec_compile 或 architecture_decide 来重复追问，除非用户明确要求修改规格。",
         "不要把用户端登录和后台管理员登录合并成同一个字段。",
         "如果用户只需要导出，不要擅自扩展成完整后台管理系统。",
         "未命中稳定 domain pack 时，应使用 generic MVP 草案，不要套用报名、电商、预约、内容社区、工单、知识库或 CRM 模板。",
@@ -310,6 +312,23 @@ function appendRemoteGateMeta(result: AssistResult, fallbackReason?: string): As
     agentGuidance: [
       ...result.agentGuidance,
       `远程 PM Gate 未使用或已降级：${fallbackReason}。当前结果来自本地规则。`,
+    ],
+  };
+}
+
+function appendConnectHintIfUseful(result: AssistResult): AssistResult {
+  const decision = result.pmIntentDecision;
+  if (!decision || isRemoteGateConfigured()) return result;
+  const shouldHint =
+    decision.confidence === "low" ||
+    decision.needType === "unknown" ||
+    decision.technicalShape === "unknown";
+  if (!shouldHint) return result;
+  return {
+    ...result,
+    agentGuidance: [
+      ...result.agentGuidance,
+      "在线 PM Gate 未连接；如需提升低置信需求的归门质量，可先调用 product_spec_connect，引导用户下载连接文件并由 Agent 写入 MCP 配置。",
     ],
   };
 }

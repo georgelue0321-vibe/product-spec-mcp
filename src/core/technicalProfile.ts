@@ -58,6 +58,7 @@ export function buildTechnicalProfile(
   if (localTool) evidence.push("需求像个人清单、记录、台账、提醒或收藏工具");
   if (aiRisk) blockers.push("涉及 AI 或第三方模型密钥，需要后端保护密钥");
   if (paymentRisk) blockers.push("涉及支付、订单或收款，需要后端确认金额和状态");
+  if (hasOperationalOrderWorkflowSignal(text)) evidence.push("需求包含下单、订单状态或后台操作流，需要统一后端状态源");
 
   if (fullBackend && !isNegatedBackend(text)) {
     return profile("full_backend_saas", "high", false, true, true, true, "postgresql", evidence, blockers);
@@ -216,7 +217,13 @@ function hasStaticDisplaySignal(text: string): boolean {
 
 function hasLightBackendSignal(text: string, context: Record<string, unknown>): boolean {
   if (context.has_auth === true || context.need_backend === true || context.backend_need === true) return true;
-  return /(后台|管理员|登录|注册|多人|团队|审核|权限|服务端|服务器|数据库|报名|预约|容量|满员|提交到服务器|公开给用户)/.test(text) && !isNegatedBackend(text);
+  return /(后台|管理员|登录|注册|多人|团队|审核|权限|服务端|服务器|数据库|报名|预约|容量|满员|提交到服务器|公开给用户)/.test(text) && !isNegatedBackend(text) ||
+    hasOperationalOrderWorkflowSignal(text);
+}
+
+function hasOperationalOrderWorkflowSignal(text: string): boolean {
+  if (/(不接|不做|不用|无需|不需要|暂不|先不).{0,8}(订单|下单|后厨|扫码点餐|菜品)/.test(text)) return false;
+  return /(扫码点餐|扫码下单|后厨|菜品|菜单|桌号|订单状态|维护菜品|顾客.{0,6}下单|下单.{0,12}(后厨|订单状态)|后厨.{0,12}(订单|状态))/.test(text);
 }
 
 function hasSaasSignal(text: string, context: Record<string, unknown>): boolean {
@@ -231,8 +238,14 @@ function hasAiRisk(text: string, context: Record<string, unknown>): boolean {
 
 function hasPaymentRisk(text: string, context: Record<string, unknown>): boolean {
   if (context.has_payment === true) return true;
+  if (isSplitBillAccountingText(text)) return false;
   if (/(不接|不做|不用|无需|不需要|暂不|先不).{0,8}(支付|付款|收费|订单|收款|购买)/.test(text)) return false;
   return /(支付|付款|收款|退款|微信支付|支付宝|在线支付|订单支付|付费套餐|套餐购买)/.test(text);
+}
+
+function isSplitBillAccountingText(text: string): boolean {
+  return /(AA|aa|分账|均摊|人均|谁该转给谁|转给谁|转账建议)/.test(text) &&
+    /(记账|付款记录|付了多少钱|参与人|本地保存|localStorage|浏览器)/.test(text);
 }
 
 function hasStrongBackendSignal(text: string, context: Record<string, unknown>): boolean {

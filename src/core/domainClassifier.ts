@@ -95,7 +95,7 @@ export function classifyProductDomain(rawIdea: string, context: Record<string, a
     }
   }
 
-  const registration = hasAny(text, ["活动报名", "报名系统", "报名表", "参会", "参赛"]) && !negatedRegistration;
+  const registration = hasAny(text, ["活动报名", "报名系统", "报名表", "报名用户", "报名数据", "报名列表", "用户报名表单", "参会", "参赛"]) && !negatedRegistration;
   if (registration) scores.registration += 7;
   if (registration && hasAny(text, ["导出", "Excel", "手机号", "报名列表"])) scores.registration += 3;
 
@@ -235,7 +235,7 @@ function isPlantCareTool(text: string): boolean {
 }
 
 function hasNegatedRegistration(text: string): boolean {
-  return /(不接|不做|不用|无需|不需要|暂不|先不|不是|不要).{0,8}(报名|报名系统|报名表|手机号|导出 Excel|导出Excel)/.test(text);
+  return /(不接|不做|不用|无需|不需要|暂不|先不|不是|不要).{0,4}(报名|报名系统|报名表|手机号|导出 Excel|导出Excel)/.test(text);
 }
 
 function hasNegatedTicket(text: string): boolean {

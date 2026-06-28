@@ -5,6 +5,14 @@ import { calculateReadiness } from "../core/specReadiness.js";
 import { generateClarification } from "../core/clarificationEngine.js";
 import { formatInterrogateResult } from "../core/markdownFormatter.js";
 import { buildInterrogateStructuredOutput } from "../core/structuredResultBuilder.js";
+import { buildTechnicalProfile } from "../core/technicalProfile.js";
+import { decidePmIntent } from "../core/pmIntentGate.js";
+import {
+  buildPmGateClarification,
+  buildPmGateReadiness,
+  formatPmGateInterrogateResult,
+  shouldUsePmGateClarification,
+} from "../core/pmGateClarification.js";
 import type { z } from "zod";
 
 type Input = z.infer<typeof SpecInterrogateInputSchema>;
@@ -12,16 +20,27 @@ type Input = z.infer<typeof SpecInterrogateInputSchema>;
 export function registerSpecInterrogate(server: McpServer): void {
   const handler = async (input: Input) => {
     const readiness = calculateReadiness(input.raw_idea, input.known_context);
-    const clarification = generateClarification(
+    const technicalProfile = buildTechnicalProfile(input.raw_idea, input.known_context || {});
+    const pmIntentDecision = decidePmIntent(input.raw_idea, input.known_context || {});
+    const usePmGate = input.scenario !== "modify_ui" && shouldUsePmGateClarification(pmIntentDecision);
+    const effectiveReadiness = usePmGate ? buildPmGateReadiness(pmIntentDecision, readiness) : readiness;
+    const clarification = usePmGate ? buildPmGateClarification(pmIntentDecision) : generateClarification(
       input.raw_idea,
-      readiness,
+      effectiveReadiness,
       input.scenario,
       input.target_platform,
       input.strictness,
       input.known_context
     );
-    const markdown = formatInterrogateResult(readiness, clarification);
-    const structuredContent = buildInterrogateStructuredOutput(readiness, clarification);
+    const markdown = usePmGate
+      ? formatPmGateInterrogateResult(pmIntentDecision, effectiveReadiness, clarification)
+      : formatInterrogateResult(effectiveReadiness, clarification);
+    const structuredContent = buildInterrogateStructuredOutput(
+      effectiveReadiness,
+      clarification,
+      technicalProfile,
+      usePmGate ? pmIntentDecision : undefined
+    );
 
     return {
       content: [{ type: "text" as const, text: markdown }],

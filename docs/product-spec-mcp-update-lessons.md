@@ -23,6 +23,9 @@
 | L11 | “管理”是弱词，不能单独拉起后端 | `src/rules/architectureRules.json`, `src/core/architectureEngine.ts`, `src/core/contextSignals.ts` | “XX管理工具”本地场景仍应纯前端 | v0.3.17 复测 |
 | L12 | 先判技术复杂度，再判业务 domain | `src/core/technicalProfile.ts`, `src/core/assistEngine.ts`, `src/core/promptBuilder.ts`, `src/core/architectureEngine.ts`, `src/core/acceptanceEngine.ts` | 静态/本地/JSON/data.json/轻后端/SaaS 技术形态矩阵 | v0.3.18 local-first gate |
 | L14 | PM Gate 是产品经理式边界门，不是新 domain pack | `src/core/pmIntentGate.ts`, `src/core/assistEngine.ts`, `src/core/promptBuilder.ts`, `src/core/architectureEngine.ts`, `src/core/acceptanceEngine.ts`, `src/core/remotePmIntentGate.ts` | 多人协作、内容营销站、xlsx 图表站、远程 gate 降级、旧 domain 不被抢路由 | v0.3.26 PM Gate |
+| L15 | 订单流不是纯前端记录工具 | `src/core/technicalProfile.ts`, `src/core/promptBuilder.ts`, `src/core/architectureEngine.ts` | 扫码点餐、后厨状态、菜品维护、订单 API | v0.4.2 MVP 收口 |
+| L16 | 本地计算里的付款记录不是支付系统 | `src/core/localToolSignals.ts`, `src/core/technicalProfile.ts`, `src/core/architectureEngine.ts` | AA/分账/转账建议仍应 localStorage | v0.4.2 MVP 收口 |
+| L17 | 连接文件错误要机器可读 | `src/core/connectGuide.ts`, `src/tools/productSpecConnect.ts`, `src/schemas/outputs/productSpecConnect.output.ts` | 无效 connect file 应有 structuredContent.isError 和 warnings | v0.4.2 MVP 收口 |
 
 ## L1：`spec_compile` 不能丢用户 answers
 
@@ -250,6 +253,46 @@ node -e "const fs=require('fs'); const pkg=require('./package.json'); const dist
 - xlsx 图表站进入 `data_visualization_site + agent_assisted + static_json_data_page`，不得默认上传后台/数据库。
 - 工单、知识库、CRM 等旧 domain 不得被 PM Gate 泛协作门抢路由。
 - 远程 gate 必测：本地高置信不调用 LLM、force/低置信调用 LLM、远端 invalid JSON 或非法枚举降级、远端错判 static page 时本地强规则修回多人协作。
+
+## L15：订单流不是纯前端记录工具
+
+**典型问题**：扫码点餐、后厨看订单状态、老板维护菜品价格这类需求，`spec_compile` 只抽出“订单/价格”，然后按 pure frontend/localStorage 输出，导致 Agent 需要重新设计菜单、菜品、订单项、后厨状态和老板后台。
+
+**更新原则**：
+- “扫码点餐 / 顾客下单 / 后厨 / 订单状态 / 菜品维护 / 桌号”组合是运行时订单流，默认需要统一后端状态源。
+- 不需要做完整餐饮 domain pack；可以先用横向 operational order workflow 输出菜单、条目、订单、订单项和状态流。
+- 订单金额或菜品价格必须以后端菜品表为准，不能信任前端传入金额。
+
+**回归要求**：
+- `spec_compile` 对扫码点餐必须输出 `menus / dishes / orders / order_items`。
+- API 必须包含 `POST /api/orders`、后厨状态更新和管理员菜品维护。
+- `architecture_decide` 不能把该类需求降级成纯前端。
+
+## L16：本地计算里的付款记录不是支付系统
+
+**典型问题**：AA 记账、分账、谁该转给谁，本质是本地计算和记录；如果看到“付款记录”就拉起支付后端，会把纯前端工具误判成 SaaS。
+
+**更新原则**：
+- `AA / 分账 / 均摊 / 谁该转给谁 / 转账建议` 与 `付款记录 / 付了多少钱 / 参与人 / 本地保存` 同时出现时，应按本地计算工具处理。
+- `spec_compile` 应输出 participants、payments、shareAmount、settlements，而不是只有“新增/编辑/删除”。
+- `architecture_decide` 对这类 features 仍应 `needBackend=false`。
+
+**回归要求**：
+- `spec_compile` 必须包含参与人、付款记录、转账建议、`settlements` 和总金额/差额验收。
+- `architecture_decide` 对 AA 记账 features 不得触发 paymentRisk。
+
+## L17：连接文件错误要机器可读
+
+**典型问题**：无效 `product-spec-mcp-connect.json` 只在文本里提示错误，机器调用者无法通过结构化输出判断失败。
+
+**更新原则**：
+- 无效连接文件应返回 `structuredContent.isError=true`。
+- 原始 warnings 要保留在 structured output 和 markdown 注意事项里。
+- 有效连接文件即使带非关键 warnings，也不要误标错误。
+
+**回归要求**：
+- 黑盒 MCP stdio 测试必须覆盖无效 connect file。
+- 断言 `configured=false`、`isError=true` 和具体 warning 文案。
 
 以下坑点仍保留在 `docs/workbuddy-mcp-pitfalls.md`，但不进入本项目更新经验索引：
 

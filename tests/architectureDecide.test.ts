@@ -197,6 +197,23 @@ describe("architectureDecide", () => {
     expect(result.mvpSuggestion).not.toContain("支付回调");
   });
 
+  it("should not treat AA split-bill payment records as payment backend", () => {
+    const result = decideArchitecture(
+      "AA 记账小工具，数据本地保存",
+      "web",
+      ["参与人管理", "付款记录", "转账建议计算", "localStorage 本地保存", "不需要登录"],
+      false,
+      "individual"
+    );
+
+    expect(result.domain).toBe("generic");
+    expect(result.canBeFrontendOnly).toBe(true);
+    expect(result.needBackend).toBe(false);
+    expect(result.needAuth).toBe(false);
+    expect(result.needAdmin).toBe(false);
+    expect(result.paymentRisk).toBe(false);
+  });
+
   it("should keep personal password hint tools out of backend admin mode", () => {
     const result = decideArchitecture(
       "个人密码提示卡小工具，自己用，不保存真实密码，纯前端本地保存",
@@ -274,6 +291,33 @@ describe("architectureDecide", () => {
     expect(result.mvpSuggestion).not.toContain("RBAC");
     expect(markdown).toContain("手机号");
     expect(markdown).toContain("导出接口必须鉴权");
+  });
+
+  it("should not downgrade compiled registration features to frontend-only", () => {
+    const result = decideArchitecture(
+      "活动报名系统，用户填姓名电话报名人数，后台能查看、搜索和导出 Excel。",
+      "web",
+      [
+        "用户报名表单：姓名、手机号、报名人数、备注",
+        "提交报名：提交即完成，不需要审核",
+        "数据保存：报名数据持久化到 SQLite",
+        "防重复：手机号去重",
+        "字段校验：姓名和手机号必填，手机号格式校验，报名人数为正整数",
+        "管理员登录：管理员登录后访问后台",
+        "管理后台：报名列表、手机号搜索、导出 Excel",
+        "导出数据：按当前筛选条件导出 Excel",
+      ],
+      false,
+      "small_team"
+    );
+
+    expect(result.domain).toBe("registration");
+    expect(result.needBackend).toBe(true);
+    expect(result.needAuth).toBe(true);
+    expect(result.needAdmin).toBe(true);
+    expect(result.canBeFrontendOnly).toBe(false);
+    expect(result.recommendedDatabase).toBe("SQLite");
+    expect(result.mvpSuggestion).toContain("Session");
   });
 
   it("should keep individual digital commerce MVP lightweight but backend-safe", () => {

@@ -178,7 +178,7 @@ function decideRecommendedDeployment(
   if (accessTopology === "lan_only") return "local_lan_server_sqlite";
   if (accessTopology === "internet_ip") return "cheap_vps_sqlite_by_ip";
   if (accessTopology === "public_domain") return "vps_domain_https";
-  if (technicalShape === "light_backend_json_sqlite") return "cheap_vps_sqlite_by_ip";
+  if (technicalShape === "light_backend_json_sqlite") return "unknown";
   return "unknown";
 }
 
@@ -207,13 +207,20 @@ function enforceHardRules(decision: PmIntentDecision): PmIntentDecision {
       needType: "multi_user_collaboration",
       maintenanceMode: "runtime_collaboration",
       technicalShape: "light_backend_json_sqlite",
-      recommendedDeployment: decision.accessTopology === "lan_only" ? "local_lan_server_sqlite" : "cheap_vps_sqlite_by_ip",
+      recommendedDeployment: recommendedDeploymentForCollaboration(decision.accessTopology),
       route: "spec_interrogate",
       mustNotUse: Array.from(new Set([...decision.mustNotUse, "static_display", "local_storage_only"])),
     };
   }
 
   return decision;
+}
+
+function recommendedDeploymentForCollaboration(accessTopology: AccessTopology): RecommendedDeployment {
+  if (accessTopology === "lan_only") return "local_lan_server_sqlite";
+  if (accessTopology === "internet_ip") return "cheap_vps_sqlite_by_ip";
+  if (accessTopology === "public_domain") return "vps_domain_https";
+  return "unknown";
 }
 
 function buildMustNotUse(needType: NeedType, maintenanceMode: MaintenanceMode): string[] {

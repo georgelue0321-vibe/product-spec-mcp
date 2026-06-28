@@ -1,5 +1,40 @@
 # Changelog
 
+## 0.4.4 - Clear first-use setup guide
+
+- Rewrote CLI help around a three-step user flow: copy MCP config, ask the Agent to call `product_spec_connect`, then download and return the JSON connection file.
+- Added npm-based MCP configuration snippets for common `mcpServers` clients and opencode-style clients.
+- Clarified `product_spec_connect` output so Agents tell users to open the connection link, download `product-spec-mcp-connect.json`, and send the file back without hand-copying tokens.
+
+## 0.4.3 - DeepSeek gate and first-run connection guidance
+
+- Switched the Cloudflare Online Gate default provider from Mimo to DeepSeek.
+- Defaulted Worker vars and fallback constants to `deepseek-v4-flash`.
+- Added CLI help that tells new users to call `product_spec_connect`, open the connection page, download the JSON connection file, and return it to their Agent.
+- Clarified the first-run connection flow in MCP tool descriptions and user documentation.
+
+## 0.4.2 - MVP readiness fixes
+
+- Added a generic backend order-workflow compile path for QR ordering and kitchen status scenarios.
+- Tightened architecture consistency so compiled registration features are not downgraded to frontend-only local storage.
+- Improved AA calculator local specs with participants, payments, settlements, and algorithm acceptance checks.
+- Marked invalid `product_spec_connect` files in structured output and kept the specific validation warnings visible.
+- Rewrote the README opening around users who need help turning product ideas into executable engineering specs.
+
+## 0.4.1 - Connect page user context
+
+- Added AI tool and multi-select use-case fields to the `/connect` page.
+- Stored generated token metadata as `client` and `use_case` for later product direction and billing analysis.
+- Added client-specific configuration hints/snippets to downloaded connect files for WorkBuddy, Claude Desktop, Claude Code, Codex, OpenCode, and generic Agents.
+
+## 0.4.0 - Self-serve Online Gate connection
+
+- Added `product_spec_connect` so Agents can guide users through connecting the Online PM Gate without manual token copying.
+- Added a Worker `/connect` page and `/v1/connect-token` endpoint that generate `product-spec-mcp-connect.json` files with `psm_` scoped tokens.
+- Added D1 token and usage tables for per-token daily/monthly quota tracking and future paid access.
+- Kept legacy `GATE_TOKEN` compatibility while allowing generated `psm_` tokens to call `/v1/pm-intent`.
+- Added connect-flow docs, README guidance, Worker tests, and black-box MCP regression coverage for the new tool.
+
 ## 0.3.28 - Mimo JSON response hardening
 
 - Added `response_format: { type: "json_object" }` to Online Gate LLM calls.

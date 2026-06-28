@@ -1,6 +1,6 @@
 {
   "name": "product-spec-mcp",
-  "version": "0.3.28",
+  "version": "0.4.4",
   "description": "MCP Server for product specification - requirement interrogation, architecture decision, UI translation, debug guidance, and acceptance generation",
   "type": "commonjs",
   "main": "dist/index.cjs",
@@ -9,9 +9,13 @@
   },
   "files": [
     "dist/index.cjs",
+    "CHANGELOG.md",
     "README.md",
+    "docs/quick-start.md",
+    "docs/connect-flow.md",
     "docs/online-pm-gate.md",
     "workers/pm-intent-gate.mjs",
+    "workers/migrations/*.sql",
     "workers/schema.sql",
     "workers/wrangler.toml.example"
   ],

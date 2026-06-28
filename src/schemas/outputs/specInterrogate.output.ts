@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { TechnicalProfileSchema } from "../technicalProfile.schema.js";
+import { PmIntentDecisionSchema } from "../pmIntentDecision.schema.js";
 
 export const SpecInterrogateOutputSchema = z.object({
   readiness: z.object({
@@ -34,6 +35,7 @@ export const SpecInterrogateOutputSchema = z.object({
     reason: z.string(),
   }),
   technicalProfile: TechnicalProfileSchema.optional(),
+  pmIntentDecision: PmIntentDecisionSchema.optional(),
 });
 
 export type SpecInterrogateOutput = z.infer<typeof SpecInterrogateOutputSchema>;

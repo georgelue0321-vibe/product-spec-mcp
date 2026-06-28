@@ -6,11 +6,12 @@ import { registerUiTranslate } from "./tools/uiTranslate.js";
 import { registerDebugGuide } from "./tools/debugGuide.js";
 import { registerAcceptanceGenerate } from "./tools/acceptanceGenerate.js";
 import { registerProductSpecAssist } from "./tools/productSpecAssist.js";
+import { registerProductSpecConnect } from "./tools/productSpecConnect.js";
 
 export function createServer(): McpServer {
   const server = new McpServer({
     name: "product-spec-mcp",
-    version: "0.3.28",
+    version: "0.4.4",
   });
 
   registerSpecInterrogate(server);
@@ -20,6 +21,7 @@ export function createServer(): McpServer {
   registerDebugGuide(server);
   registerAcceptanceGenerate(server);
   registerProductSpecAssist(server);
+  registerProductSpecConnect(server);
 
   return server;
 }

@@ -307,13 +307,13 @@ export function decideArchitecture(
     !commercialIntent &&
     !paymentRisk &&
     !aiKeyRisk;
-  const needsBackend = isIndividualContentCommunityMvp || isIndividualTicketWorkflowMvp || isIndividualKnowledgeBaseMvp || isIndividualCrmMvp || result.need_backend || matchedRules.some(r => r.result.need_backend);
-  const needsAuth = !singleUserCrm && (isIndividualContentCommunityMvp || isIndividualTicketWorkflowMvp || isIndividualKnowledgeBaseMvp || isIndividualCrmMvp || result.need_auth || matchedRules.some(r => r.result.need_auth) || /登录|鉴权|权限|下载|后台|管理员|处理人|成员|销售/.test(allText));
-  const needsAdmin = !singleUserCrm && (isIndividualContentCommunityMvp || isIndividualTicketWorkflowMvp || isIndividualKnowledgeBaseMvp || isIndividualCrmMvp || result.need_admin || matchedRules.some(r => r.result.need_admin) || /后台|管理员|审核|举报|隐藏|下架|分配|处理人|发布|撤回|目录权限|成员权限|负责人/.test(allText));
+  const needsBackend = technicalProfile.needsBackend || isLightweightCoveredDomain || isIndividualContentCommunityMvp || isIndividualTicketWorkflowMvp || isIndividualKnowledgeBaseMvp || isIndividualCrmMvp || result.need_backend || matchedRules.some(r => r.result.need_backend);
+  const needsAuth = !singleUserCrm && (technicalProfile.needsAuth || isLightweightCoveredDomain || isIndividualContentCommunityMvp || isIndividualTicketWorkflowMvp || isIndividualKnowledgeBaseMvp || isIndividualCrmMvp || result.need_auth || matchedRules.some(r => r.result.need_auth) || /登录|鉴权|权限|下载|后台|管理员|处理人|成员|销售/.test(allText));
+  const needsAdmin = !singleUserCrm && (technicalProfile.needsAdmin || isLightweightCoveredDomain || isIndividualContentCommunityMvp || isIndividualTicketWorkflowMvp || isIndividualKnowledgeBaseMvp || isIndividualCrmMvp || result.need_admin || matchedRules.some(r => r.result.need_admin) || /后台|管理员|审核|举报|隐藏|下架|分配|处理人|发布|撤回|目录权限|成员权限|负责人/.test(allText));
   const needsLogging = paymentRisk || aiKeyRisk || (!isLightweightIndividualMvp && (result.need_logging || matchedRules.some(r => r.result.need_logging)));
 
   return {
-    canBeFrontendOnly: result.can_be_frontend_only,
+    canBeFrontendOnly: needsBackend ? false : result.can_be_frontend_only,
     needBackend: needsBackend,
     needSeparation: isLightweightIndividualMvp || isLightweightCoveredDomain ? false : result.need_separation,
     recommendedDatabase: isIndividualRegistrationMvp || (isLightweightCoveredDomain && domain === "registration") ? "SQLite" : isIndividualDigitalCommerceMvp || isIndividualAppointmentMvp || isIndividualContentCommunityMvp || isIndividualTicketWorkflowMvp || isIndividualKnowledgeBaseMvp || isIndividualCrmMvp || isLightweightCoveredDomain ? "SQLite 或 JSON 文件存储" : dbRec,
@@ -379,5 +379,7 @@ function hasNegatedPayment(text: string): boolean {
 
 function hasDirectPaymentRisk(text: string): boolean {
   if (hasNegatedPayment(text)) return false;
+  if (/(AA|aa|分账|均摊|人均|谁该转给谁|转给谁|转账建议)/.test(text) &&
+    /(记账|付款记录|付了多少钱|参与人|本地保存|localStorage|浏览器)/.test(text)) return false;
   return /支付|付款|收费|收款|退款|微信支付|支付宝|在线支付|付费套餐|套餐购买/.test(text);
 }

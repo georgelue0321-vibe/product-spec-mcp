@@ -77,6 +77,10 @@ export function buildSpec(
     return withTechnicalProfile(buildRegistrationSpec(rawIdea, normalizedContext, readiness), technicalProfile);
   }
 
+  if (classification.domain === "generic" && isOperationalOrderWorkflowContext(rawIdea, normalizedContext)) {
+    return withTechnicalProfile(buildOperationalOrderWorkflowSpec(rawIdea, normalizedContext, readiness), technicalProfile);
+  }
+
   if (classification.domain === "generic" && shouldUsePmGateSpec(pmIntentDecision)) {
     return withTechnicalProfile(buildPmGateSpec(rawIdea, normalizedContext, readiness, pmIntentDecision), technicalProfile);
   }
@@ -118,6 +122,13 @@ export function buildSpec(
   }
   if (hasStructuredAnswers) {
     assumptions.push("当前输入包含多个结构化答案，但未匹配到稳定 domain pack；不要把它套入报名、电商、预约、内容社区、工单或知识库模板。");
+  }
+  if (personalLocalTool) {
+    assumptions.push(
+      "数据默认保存在当前浏览器 localStorage 中，刷新后保留，但不做跨设备同步。",
+      "第一版默认不需要登录、注册、后台管理或管理员角色。",
+      "页面高级感只作为 UI 风格和响应式验收要求，不作为后端或服务器数据库信号。"
+    );
   }
 
   const needsBackend = technicalProfile.needsBackend || normalizedContext.need_backend === true ||
@@ -603,6 +614,74 @@ function buildDigitalCommerceSpec(
     ],
     assumptions: [],
     inputConsumption: buildInputConsumption(context, domainKeys, "digital_commerce", "high"),
+  };
+}
+
+function buildOperationalOrderWorkflowSpec(
+  rawIdea: string,
+  context: Record<string, any>,
+  readiness: { score: number; fields: Record<string, any> }
+): SpecResult {
+  const platform = context.platform || context.target_platform || extractPlatform(rawIdea) || "web";
+  const database = context.database || "SQLite";
+  const domainKeys = ["order_flow", "admin_features", "data_persistence", "target_platform"];
+
+  return {
+    readinessScore: Math.max(readiness.score, 60),
+    readinessStatus: "Draft Ready",
+    isActionable: false,
+    productGoal: context.product_goal || "扫码点餐订单系统",
+    targetUser: context.target_user || "顾客、后厨人员和店铺管理员",
+    platform,
+    coreFeatures: [
+      "顾客扫码进入桌台点餐页",
+      "菜单和菜品展示：分类、名称、价格、上下架状态",
+      "购物车和下单：选择菜品、数量、备注并创建订单",
+      "订单状态流：pending -> accepted -> cooking -> ready -> completed/cancelled",
+      "后厨订单看板：查看新订单并更新制作状态",
+      "老板后台：维护菜品、分类、价格和上下架状态",
+    ],
+    dataModel: buildOperationalOrderDataModel(database),
+    architecture: [
+      `MVP 推荐单体 Web 后端架构：Node.js/Express + ${database} + 服务端 Session。`,
+      "顾客下单、后厨状态和老板维护菜品都需要统一后端状态源，不能只放在浏览器 localStorage。",
+      "价格必须以后端菜品表为准，前端传入金额只能作为展示参考。",
+    ].join("\n"),
+    apiDesign: [
+      "GET /api/menus - 查询可展示菜单分类和已上架菜品",
+      "POST /api/orders - 顾客创建订单；body: { tableCode, items, note }；后端按菜品表计算金额并写入 pending 状态",
+      "GET /api/orders/:id - 查询订单详情和当前状态",
+      "GET /api/kitchen/orders?status= - 后厨查询待处理和制作中订单；需要后厨或管理员登录",
+      "PATCH /api/kitchen/orders/:id/status - 后厨更新订单状态；只允许按状态机流转",
+      "POST /api/admin/login - 老板或管理员登录",
+      "GET /api/admin/dishes - 查询菜品列表",
+      "POST /api/admin/dishes - 新增菜品",
+      "PATCH /api/admin/dishes/:id - 编辑菜品名称、价格、分类或上下架状态",
+      "GET /api/admin/orders - 老板查询订单列表和状态",
+    ].join("\n"),
+    riskBoundaries: [
+      "订单金额必须由后端根据菜品价格计算，不能信任前端传入金额",
+      "后厨状态流转必须在后端校验，避免订单被跳过或重复完成",
+      "老板后台和后厨看板必须服务端鉴权",
+      "同一桌台短时间重复提交需要幂等或明确防重复提示",
+    ],
+    nonGoals: [
+      "MVP 暂不接真实支付",
+      "MVP 暂不做复杂库存、会员和优惠券",
+      "MVP 暂不做多门店和复杂权限",
+    ],
+    successCriteria: [
+      "顾客扫码后可以看到已上架菜品并创建订单",
+      "订单创建后，后厨看板能看到新订单和菜品明细",
+      "后厨更新状态后，顾客订单详情能看到最新状态",
+      "老板可以新增、编辑、下架菜品，且下架菜品不能再被下单",
+      "订单金额以后端菜品价格计算，修改前端金额不会影响实际订单金额",
+    ],
+    assumptions: [
+      "MVP 默认每张桌子使用一个 tableCode 或二维码参数识别来源。",
+      "MVP 默认后厨和老板使用简单账号登录，不做复杂 RBAC。",
+    ],
+    inputConsumption: buildInputConsumption(context, domainKeys, "generic", "medium"),
   };
 }
 
@@ -1360,6 +1439,13 @@ function isDigitalCommerceContext(rawIdea: string, context: Record<string, any>)
   return classifyProductDomain(rawIdea, context).domain === "digital_commerce";
 }
 
+function isOperationalOrderWorkflowContext(rawIdea: string, context: Record<string, any>): boolean {
+  const text = `${rawIdea} ${JSON.stringify(context)}`;
+  if (classifyProductDomain(rawIdea, context).domain !== "generic") return false;
+  if (/(不接|不做|不用|无需|不需要|暂不|先不).{0,8}(订单|下单|后厨|扫码点餐|菜品)/.test(text)) return false;
+  return /(扫码点餐|扫码下单|后厨|菜品|菜单|桌号|订单状态|维护菜品|顾客.{0,6}下单|下单.{0,12}(后厨|订单状态)|后厨.{0,12}(订单|状态))/.test(text);
+}
+
 function isAppointmentContext(rawIdea: string, context: Record<string, any>): boolean {
   return classifyProductDomain(rawIdea, context).domain === "appointment";
 }
@@ -1426,6 +1512,18 @@ function buildDigitalCommerceDataModel(database: string): string {
     "downloads(id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER NOT NULL, product_id INTEGER NOT NULL, order_id INTEGER NOT NULL, downloaded_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP, ip TEXT)",
     "admin_users(id INTEGER PRIMARY KEY AUTOINCREMENT, username TEXT NOT NULL UNIQUE, password_hash TEXT NOT NULL, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)",
     "建议索引：idx_orders_user(user_id)，idx_orders_product(product_id)，idx_downloads_user(user_id)，idx_downloads_order(order_id)",
+  ].join("\n");
+}
+
+function buildOperationalOrderDataModel(database: string): string {
+  return [
+    `数据库：${database}`,
+    "menus(id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, sort_order INTEGER NOT NULL DEFAULT 0, status TEXT NOT NULL DEFAULT 'active')",
+    "dishes(id INTEGER PRIMARY KEY AUTOINCREMENT, menu_id INTEGER NOT NULL, name TEXT NOT NULL, description TEXT, price_cents INTEGER NOT NULL CHECK(price_cents >= 0), status TEXT NOT NULL DEFAULT 'active', created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP, updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)",
+    "orders(id INTEGER PRIMARY KEY AUTOINCREMENT, table_code TEXT NOT NULL, status TEXT NOT NULL DEFAULT 'pending', total_cents INTEGER NOT NULL DEFAULT 0, note TEXT DEFAULT '', created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP, updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)",
+    "order_items(id INTEGER PRIMARY KEY AUTOINCREMENT, order_id INTEGER NOT NULL, dish_id INTEGER NOT NULL, dish_name TEXT NOT NULL, unit_price_cents INTEGER NOT NULL, quantity INTEGER NOT NULL CHECK(quantity >= 1), note TEXT DEFAULT '')",
+    "staff_users(id INTEGER PRIMARY KEY AUTOINCREMENT, username TEXT NOT NULL UNIQUE, password_hash TEXT NOT NULL, role TEXT NOT NULL DEFAULT 'kitchen', created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)",
+    "建议索引：idx_orders_status(status)，idx_orders_table(table_code)，idx_order_items_order(order_id)，用于后厨看板和订单详情查询",
   ].join("\n");
 }
 
@@ -1672,12 +1770,16 @@ function buildDataModel(context: Record<string, any>, needsBackend = true, techn
 
 function buildLocalRecordJsonExample(recordObject: string, fieldExample: string): string {
   const labels = fieldExample.split("、").map((item) => item.trim()).filter(Boolean);
-  const record: Record<string, string | number> = {
+  const record: Record<string, string | number | Array<Record<string, string | number>>> = {
     id: "item-1",
   };
 
   for (const label of labels) {
     if (label.includes("名")) record.name = `示例${recordObject}`;
+    else if (label.includes("参与人")) record.participants = [{ id: "p1", name: "张三" }, { id: "p2", name: "李四" }];
+    else if (label.includes("付款记录")) record.payments = [{ payerId: "p1", amount: 120, note: "晚餐" }];
+    else if (label.includes("应付金额")) record.shareAmount = 60;
+    else if (label.includes("转账建议")) record.settlements = [{ from: "p2", to: "p1", amount: 60 }];
     else if (label.includes("数量") || label.includes("库存")) record.quantity = 1;
     else if (label.includes("有效期") || label.includes("到期")) record.expireDate = "2026-12-31";
     else if (label.includes("分类")) record.category = "默认分类";

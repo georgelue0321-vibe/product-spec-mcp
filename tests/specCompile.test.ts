@@ -547,6 +547,41 @@ describe("specCompile", () => {
     expect(combined).not.toContain("admin_users");
   });
 
+  it("should compile QR restaurant ordering as a backend order workflow", () => {
+    const rawIdea = "我想做一个扫码点餐系统，顾客扫码下单，后厨能看到订单状态，老板能维护菜品和价格。";
+    const readiness = calculateReadiness(rawIdea, {});
+    const spec = buildSpec(rawIdea, {}, readiness);
+    const combined = `${spec.coreFeatures.join("\n")}\n${spec.dataModel}\n${spec.apiDesign}\n${spec.architecture}\n${spec.successCriteria.join("\n")}`;
+
+    expect(spec.technicalProfile?.frontendOnly).toBe(false);
+    expect(spec.technicalProfile?.needsBackend).toBe(true);
+    expect(spec.architecture).not.toContain("纯前端");
+    expect(combined).toContain("menus");
+    expect(combined).toContain("dishes");
+    expect(combined).toContain("orders");
+    expect(combined).toContain("order_items");
+    expect(combined).toContain("POST /api/orders");
+    expect(combined).toContain("PATCH /api/kitchen/orders/:id/status");
+    expect(combined).toContain("PATCH /api/admin/dishes/:id");
+    expect(combined).toContain("后端");
+    expect(combined).not.toContain("localStorage 或单个 JSON 文件；无需服务器数据库");
+  });
+
+  it("should compile AA calculators with settlement fields and algorithm checks", () => {
+    const rawIdea = "做一个 AA 记账小工具，输入每个人付了多少钱和参与人，自动算谁该转给谁，数据本地保存。";
+    const readiness = calculateReadiness(rawIdea, {});
+    const spec = buildSpec(rawIdea, {}, readiness);
+    const combined = `${spec.coreFeatures.join("\n")}\n${spec.dataModel}\n${spec.apiDesign}\n${spec.successCriteria.join("\n")}`;
+
+    expect(spec.technicalProfile?.frontendOnly).toBe(true);
+    expect(combined).toContain("参与人");
+    expect(combined).toContain("付款记录");
+    expect(combined).toContain("转账建议");
+    expect(combined).toContain("settlements");
+    expect(combined).toContain("无需 API");
+    expect(combined).toContain("总付款金额");
+  });
+
   it("should not extract negated login or backend as generic features", () => {
     const cases = [
       "我想做一个个人作品展示网站，放我的介绍、作品图片、联系方式，看起来高级一点，手机上也要好看。不需要登录，不需要后台。",

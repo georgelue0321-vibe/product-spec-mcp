@@ -20,6 +20,7 @@ export function buildLocalToolSignalProfile(text: string): LocalToolSignalProfil
 }
 
 function extractRecordObject(text: string): string {
+  if (isSplitBillTool(text)) return "AA 记账";
   if (/药品|药箱|药/.test(text)) return "药品";
 
   const patterns = [
@@ -45,6 +46,8 @@ function cleanObjectLabel(value: string | undefined): string {
 }
 
 function buildFieldLabels(text: string, recordObject: string): string[] {
+  if (isSplitBillTool(text)) return ["参与人", "付款记录", "应付金额", "转账建议", "备注"];
+
   const labels = [`${recordObject}名`];
   const physicalInventory = /家里有哪些|有哪些|库存|余量|剩余|补货|存放|放在/.test(text);
   addIf(labels, "数量/库存", physicalInventory || /数量|库存|余量|剩余|补货/.test(text));
@@ -59,6 +62,10 @@ function buildFieldLabels(text: string, recordObject: string): string[] {
 }
 
 function buildFeatureHints(text: string, recordObject: string): string[] {
+  if (isSplitBillTool(text)) {
+    return ["参与人管理", "付款记录", "转账建议计算", "新增/编辑/删除"];
+  }
+
   const hints: string[] = [];
   if (/记录|管理|保存|清单|列表/.test(text)) hints.push(`${recordObject}记录管理`);
   if (/记录|管理|保存|清单|列表/.test(text)) hints.push("新增/编辑/删除");
@@ -71,6 +78,14 @@ function buildFeatureHints(text: string, recordObject: string): string[] {
 }
 
 function buildAcceptanceItems(text: string, recordObject: string, fieldLabels: string[]): string[] {
+  if (isSplitBillTool(text)) {
+    return [
+      "每个参与人可以记录姓名、是否参与本次 AA 和个人实际付款金额",
+      "总付款金额、每人应付金额和差额计算一致",
+      "转账建议能说明谁该转给谁、转多少钱，所有转账金额合计后能清零差额",
+    ];
+  }
+
   const items: string[] = [];
 
   if (/记录|管理|保存|清单|列表/.test(text)) {
@@ -95,4 +110,9 @@ function buildAcceptanceItems(text: string, recordObject: string, fieldLabels: s
 
 function addIf(items: string[], label: string, condition: boolean): void {
   if (condition) items.push(label);
+}
+
+function isSplitBillTool(text: string): boolean {
+  return /(AA|aa|分账|均摊|人均|谁该转给谁|转给谁|付了多少钱|付款金额)/.test(text) &&
+    /(记账|计算|小工具|本地保存|浏览器|参与人|每个人)/.test(text);
 }

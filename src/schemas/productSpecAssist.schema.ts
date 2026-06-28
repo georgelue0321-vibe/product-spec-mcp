@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { looseBoolean } from "./coercion.js";
 
 export const ProductSpecAssistInputSchema = z.object({
   message: z.string().describe("用户原话，必填"),
@@ -16,8 +17,7 @@ export const ProductSpecAssistInputSchema = z.object({
     .optional()
     .default("normal")
     .describe("追问强度"),
-  auto_execute: z
-    .boolean()
+  auto_execute: looseBoolean
     .optional()
     .default(true)
     .describe("是否允许自动调用对应 engine"),

@@ -7,6 +7,7 @@ import type { UiTranslation } from "./uiPromptEngine.js";
 import type { DebugGuideResult } from "./debugEngine.js";
 import type { AcceptanceResult } from "./acceptanceEngine.js";
 import type { TechnicalProfile } from "./technicalProfile.js";
+import type { PmIntentDecision } from "./pmIntentGate.js";
 import type { SpecInterrogateOutput } from "../schemas/outputs/specInterrogate.output.js";
 import type { SpecCompileOutput } from "../schemas/outputs/specCompile.output.js";
 import type { AcceptanceGenerateOutput } from "../schemas/outputs/acceptanceGenerate.output.js";
@@ -17,7 +18,8 @@ import type { DebugGuideOutput } from "../schemas/outputs/debugGuide.output.js";
 export function buildInterrogateStructuredOutput(
   readiness: ReadinessResult,
   clarification: ClarificationResult,
-  technicalProfile?: TechnicalProfile
+  technicalProfile?: TechnicalProfile,
+  pmIntentDecision?: PmIntentDecision
 ): SpecInterrogateOutput {
   const canProceed = readiness.status !== "Not Ready";
   return {
@@ -41,6 +43,7 @@ export function buildInterrogateStructuredOutput(
         : "信息不足，需要先回答追问",
     },
     technicalProfile,
+    pmIntentDecision,
   };
 }
 

@@ -443,6 +443,7 @@ describe("productSpecAssist", () => {
       expect(result.pmIntentDecision?.needType).toBe("multi_user_collaboration");
       expect(result.pmIntentDecision?.technicalShape).toBe("light_backend_json_sqlite");
       expect(result.pmIntentDecision?.maintenanceMode).toBe("runtime_collaboration");
+      expect(result.pmIntentDecision?.recommendedDeployment).toBe("unknown");
       expect(ids).toContain("access_topology");
       expect(ids).toContain("claim_rule");
       expect(ids).toContain("time_conflict_rule");

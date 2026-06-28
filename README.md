@@ -1,14 +1,102 @@
 # product-spec-mcp
 
-> 防止 AI 编程一上来就乱写代码的 MCP 工具。
+> 把一句模糊的产品想法，整理成 AI Agent 可以执行的工程规格。
 
-把用户的模糊产品想法变成追问清单、可执行规格、架构建议和验收标准。
+很多人能说清“我想做什么”，但还没法直接写出功能范围、数据字段、架构边界和验收标准。`product-spec-mcp` 先帮你把想法过一遍产品经理式需求闸门，再交给 Codex、Claude、Cursor、OpenCode 等 Agent 开始写代码。
 
-## 适用场景
+## 适合谁
 
-当你或 AI 编程助手拿到一句话需求（"做一个报名系统"、"页面高级一点"、"接口报错了"），不要直接开工。先过一遍需求闸门，减少返工。
+- 你有一个小应用、网站、工具或 SaaS 想法，但不知道怎样拆成开发规格。
+- 你是创始人、运营、设计师、小团队负责人、学生，或刚开始用 AI 写代码的人。
+- 你希望 Agent 少脑补，先确认对象、字段、权限、接口、风险和验收标准。
+- 你要判断一个需求第一版该做纯前端、本地存储、轻后端，还是完整 SaaS。
 
-## 推荐流程
+## 它会产出什么
+
+- 追问清单：先问真正会影响实现的缺口，不套固定模板。
+- 可执行规格：核心功能、数据模型、API 设计、非目标、风险边界。
+- 架构建议：判断是否需要后端、登录、后台、数据库、支付或 AI Key 保护。
+- 验收标准：把“做完了”变成可以检查的列表。
+
+## 最短使用路径
+
+### 用户只需要做三步
+
+**第一步：把 MCP 注册到当前 AI 工具。**
+
+通用 `mcp.json` 配置：
+
+```json
+{
+  "mcpServers": {
+    "product-spec": {
+      "command": "npx",
+      "args": ["-y", "product-spec-mcp@latest"]
+    }
+  }
+}
+```
+
+如果你的工具使用 opencode 风格配置：
+
+```json
+{
+  "mcp": {
+    "product-spec": {
+      "type": "local",
+      "command": ["npx", "-y", "product-spec-mcp@latest"],
+      "enabled": true,
+      "timeout": 30000
+    }
+  }
+}
+```
+
+保存后，重启 IDE 或刷新 MCP 连接。
+
+**第二步：把这句话发给 Agent。**
+
+```text
+请调用 product_spec_connect，帮我连接 product-spec-mcp 的完整在线能力。
+```
+
+它会返回连接页：
+
+```text
+https://productmcp.opc-mind.top/connect
+```
+
+打开页面后点击“生成并下载连接文件”。
+
+**第三步：把下载的 JSON 文件发回 Agent。**
+
+页面会下载 `product-spec-mcp-connect.json`。把这个文件发回 Agent；Agent 会读取 JSON 文件里的 `instructions.env`，写入当前 MCP 配置。再次重启或刷新 MCP 后即可使用完整能力。
+
+普通用户不需要配置 DeepSeek API Key。连接文件里包含的是托管 Worker 生成的专属 `PRODUCT_SPEC_REMOTE_GATE_TOKEN`，用于启用完整的在线 PM Gate 能力。
+
+完整说明见 [`docs/quick-start.md`](docs/quick-start.md)。
+
+连接完成后，直接让 Agent 调用：
+
+```text
+product_spec_assist
+```
+
+如果不确定从哪个工具开始，直接让 Agent 调用：
+
+```text
+product_spec_assist
+```
+
+输入你的原话，例如：
+
+```text
+我想做一个活动报名系统，用户填姓名电话报名人数，后台能查看、搜索和导出 Excel。
+```
+
+它会自动判断该追问、编译规格、给架构建议，还是生成验收标准。
+
+需要完整开发前规格时，推荐流程是：
 
 ```
 1. spec_interrogate   → 评估需求完整度，生成追问清单
@@ -17,15 +105,16 @@
 4. acceptance_generate → 生成验收标准
 ```
 
-**不确定用哪个工具？** 先用 `product_spec_assist`，它会自动识别场景并调用合适的工具。
+**在线 PM Gate 是完整能力的一部分。** 默认本地规则已经可用；连接后，低置信或冲突需求会走在线 LLM 辅助归门。首次使用建议先调用 `product_spec_connect`，按连接页下载 JSON 文件并交给当前 Agent 写入配置。
 
 ## Features
 
-This MCP Server provides 7 tools for product development workflow:
+This MCP Server provides 8 tools for product development workflow:
 
 | Tool | Description |
 |------|-------------|
 | `product_spec_assist` | **推荐入口** - 根据用户原话自动识别场景并调用对应能力 |
+| `product_spec_connect` | **在线增强连接** - 引导用户下载连接文件，并生成当前 Agent 应写入的 MCP 环境变量 |
 | `spec_interrogate` | Analyze requirement completeness and generate clarification questions |
 | `spec_compile` | Compile full product specification and development prompt |
 | `architecture_decide` | Make architecture decisions based on product type and features |
@@ -34,6 +123,16 @@ This MCP Server provides 7 tools for product development workflow:
 | `acceptance_generate` | Generate acceptance criteria for features |
 
 ## Installation
+
+For npm-based MCP clients:
+
+```bash
+npx -y product-spec-mcp --help
+```
+
+The help output gives copyable MCP config snippets and the exact first message to send to the Agent.
+
+For local development:
 
 ```bash
 npm install
@@ -58,15 +157,17 @@ npm run dev
 
 默认只使用本地 PM Gate。需要让低置信或冲突需求走在线 LLM 辅助归门时，可以配置独立 HTTP gate：
 
+对普通用户，推荐让 Agent 调用 `product_spec_connect`。用户只需要打开连接页，点击下载 `product-spec-mcp-connect.json`，再把文件发回 Agent；Agent 读取文件后把其中的 `instructions.env` 写入当前 MCP 配置即可。
+
 ```bash
 PRODUCT_SPEC_REMOTE_GATE_URL=https://gate.example.com/v1/pm-intent
 PRODUCT_SPEC_REMOTE_GATE_TOKEN=replace-with-token
-PRODUCT_SPEC_REMOTE_GATE_TIMEOUT_MS=2500
+PRODUCT_SPEC_REMOTE_GATE_TIMEOUT_MS=10000
 PRODUCT_SPEC_REMOTE_GATE_MODE=auto
 PRODUCT_SPEC_TELEMETRY=off
 ```
 
-`auto` 模式只在本地规则低置信、unknown 或冲突时调用远程。远程失败、限流、超时或 schema 错误时会自动降级到本地判断。Cloudflare Workers 部署模板随 npm 包一起发布，见 `docs/online-pm-gate.md`。
+`auto` 模式只在本地规则低置信、unknown 或冲突时调用远程。远程失败、限流、超时或 schema 错误时会自动降级到本地判断。Cloudflare Workers 部署模板随 npm 包一起发布，见 `docs/online-pm-gate.md` 和 `docs/connect-flow.md`。
 
 ## MCP Client Configuration
 
@@ -78,8 +179,8 @@ Add to your Claude Desktop configuration (`claude_desktop_config.json`):
 {
   "mcpServers": {
     "product-spec": {
-      "command": "node",
-      "args": ["/path/to/product-spec-mcp/dist/index.cjs"]
+      "command": "npx",
+      "args": ["-y", "product-spec-mcp@latest"]
     }
   }
 }
@@ -93,8 +194,8 @@ Add to your Cursor MCP configuration (`.cursor/mcp.json`):
 {
   "mcpServers": {
     "product-spec": {
-      "command": "node",
-      "args": ["/path/to/product-spec-mcp/dist/index.cjs"]
+      "command": "npx",
+      "args": ["-y", "product-spec-mcp@latest"]
     }
   }
 }
@@ -108,8 +209,8 @@ Add to your Continue configuration:
 {
   "mcpServers": {
     "product-spec": {
-      "command": "node",
-      "args": ["/path/to/product-spec-mcp/dist/index.cjs"]
+      "command": "npx",
+      "args": ["-y", "product-spec-mcp@latest"]
     }
   }
 }
@@ -126,10 +227,10 @@ Add to `~/.config/opencode/opencode.json`:
     "product-spec": {
       "type": "local",
       "command": [
-        "node",
-        "/path/to/product-spec-mcp/dist/index.cjs"
+        "npx",
+        "-y",
+        "product-spec-mcp@latest"
       ],
-      "cwd": "/path/to/product-spec-mcp",
       "enabled": true,
       "timeout": 30000
     }
@@ -178,6 +279,43 @@ Client-specific integration notes are intentionally kept out of the main user fl
 | UI 修改 | `ui_translate` |
 | Debug 排查 | `debug_guide` |
 | 上线部署 | 信息缺口检查 |
+
+---
+
+### product_spec_connect
+
+引导用户连接在线 PM Gate。未配置时返回连接页面；收到连接文件后返回当前 Agent 应写入 MCP 配置的环境变量。
+
+**Input:**
+- `connect_file`: 用户从连接页下载的 `product-spec-mcp-connect.json` 内容
+- `client`: 当前 Agent 名称，例如 `workbuddy`、`codex`、`opencode`
+
+**Example:**
+```json
+{
+  "client": "workbuddy"
+}
+```
+
+如果用户已经上传连接文件：
+
+```json
+{
+  "client": "workbuddy",
+  "connect_file": {
+    "type": "product-spec-mcp-connect",
+    "client": "workbuddy",
+    "useCases": ["personal_app_site", "client_requirements"],
+    "instructions": {
+      "env": {
+        "PRODUCT_SPEC_REMOTE_GATE_URL": "https://productmcp.opc-mind.top/v1/pm-intent",
+        "PRODUCT_SPEC_REMOTE_GATE_TOKEN": "psm_xxx",
+        "PRODUCT_SPEC_REMOTE_GATE_MODE": "auto"
+      }
+    }
+  }
+}
+```
 
 ---
 
